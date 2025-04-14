@@ -1,4 +1,63 @@
 /* eslint-disable no-console */
+// Function to ensure an element has a unique hydration ID
+function ensureHydrateId(element) {
+  if (!element) return null;
+  let id = element.getAttribute('data-hydrate-id');
+  if (!id) {
+      id = `hydrate-${element.tagName.toLowerCase()}-${hydrateCounter++}`;
+      element.setAttribute('data-hydrate-id', id);
+  }
+  return id;
+}
+
+function getCallingScriptLastTwoParts() {
+  try {
+    throw new Error();
+  } catch (e) {
+    const stackLines = e.stack.split('\n');
+    const callerLine = stackLines[2] || stackLines[1];
+
+    const match = callerLine.match(/(https?:\/\/.+?):\d+:\d+/);
+    if (match && match[1]) {
+      const url = new URL(match[1]);
+      const segments = url.pathname.split('/').filter(Boolean); // remove empty strings
+      const lastTwo = segments.slice(-2).join('/');
+      return lastTwo;
+    }
+  }
+  return null;
+}
+
+window.hydrate = function(config) {
+  const task = {
+    elements: {},
+    data: {},
+  };
+
+  task.file = getCallingScriptLastTwoParts();
+  task.id = config.id;
+
+  if (config.elements) {
+    Object.keys(config.elements).forEach(key => {
+      task.elements[key] = ensureHydrateId(config.elements[key]);
+    });
+  }
+
+  // Process serializable data
+  if (config.data) {
+      // Basic JSON serialization - might need more robust handling
+      try {
+          task.data = JSON.parse(JSON.stringify(config.data));
+      } catch (e) {
+          console.error("Hydration data serialization error:", e);
+          // Decide how to handle non-serializable data
+          task.data = {};
+      }
+  }
+};
+
+
+
 const MILO_TEMPLATES = [
   '404',
   'featured-story',
