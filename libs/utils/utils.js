@@ -13,7 +13,11 @@ function ensureHydrateId(element) {
   return id;
 }
 
-function getCallingScriptLastTwoParts() {
+
+window.__hydrate__ = [];
+
+window.hydrate = function(config) {
+  let lastTwo = null;
   try {
     throw new Error();
   } catch (e) {
@@ -24,20 +28,15 @@ function getCallingScriptLastTwoParts() {
     if (match && match[1]) {
       const url = new URL(match[1]);
       const segments = url.pathname.split('/').filter(Boolean); // remove empty strings
-      const lastTwo = segments.slice(-2).join('/');
-      return lastTwo;
+      lastTwo = segments.slice(-2).join('/');
     }
   }
-  return null;
-}
-
-window.hydrate = function(config) {
   const task = {
     elements: {},
     data: {},
   };
 
-  task.file = getCallingScriptLastTwoParts();
+  task.file = lastTwo;
   task.id = config.id;
 
   if (config.elements) {
@@ -57,6 +56,7 @@ window.hydrate = function(config) {
           task.data = {};
       }
   }
+  window.__hydrate__.push(task);
 };
 
 
