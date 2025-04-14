@@ -149,7 +149,7 @@ function createItem(accordion, id, heading, num, edit) {
   }
 
   window.hydrate && window.hydrate({id:0, elements:{button}, data:{dd, num, id}})
-  //@hydrate.0({elements:{button}, data:{dd, num, id}})
+  //@hydrate.0({elements:{button, dd}, data:{num, id}})
   button.addEventListener('click', (e) => { handleClick(e.target, dd, num, id); });
   //@end
   accordion.append(dt, dd);
