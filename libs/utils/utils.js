@@ -1,10 +1,13 @@
 /* eslint-disable no-console */
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
 // Function to ensure an element has a unique hydration ID
 function ensureHydrateId(element) {
   if (!element) return null;
   let id = element.getAttribute('data-hydrate-id');
   if (!id) {
-      id = `hydrate-${element.tagName.toLowerCase()}-${hydrateCounter++}`;
+      id = `hydrate-${generateId()}`;
       element.setAttribute('data-hydrate-id', id);
   }
   return id;
