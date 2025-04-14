@@ -14,7 +14,7 @@ function ensureHydrateId(element) {
 }
 
 
-window.__hydrate__ = [];
+window.__hydrate__ = [{"name": "amir"}];
 
 window.hydrate = function(config) {
   let lastTwo = null;
