@@ -17,3 +17,6 @@ libs/navigation/dist/
 /.cursor*/
 .cursor\ 2/
 /.cursor 2
+hydra/output.html
+hydra/output.json
+hydra/dist/

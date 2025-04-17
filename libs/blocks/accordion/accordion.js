@@ -205,8 +205,14 @@ async function createExpandAllContainer(accordionItems, isEditorial, mediaEl) {
     const video = mediaEl.querySelector('.expanded video');
     if (video) pauseVideo(video);
   };
+  window.hydrate && window.hydrate({id:1, elements:{expandBtn}})
+  //@hydrate.1({elements:{expandBtn}})
   expandBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'expand'));
+  //@end
+  window.hydrate && window.hydrate({id:2, elements:{collapseBtn}})
+  //@hydrate.2({elements:{collapseBtn}})
   collapseBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'collapse'));
+  //@end
   return container;
 }
 

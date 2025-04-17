@@ -482,12 +482,15 @@ class Gnav {
       itemWrapper.appendChild(clonedItem);
     });
 
+    window.hydrate && window.hydrate({id:0, elements:{localNav}})
+    //@hydrate.0({elements:{localNav}})
     localNav.querySelector('.feds-localnav-title').addEventListener('click', () => {
       localNav.classList.toggle('feds-localnav--active');
       const isActive = localNav.classList.contains('feds-localnav--active');
       localNav.querySelector('.feds-localnav-title').setAttribute('aria-expanded', isActive);
       localNav.querySelector('.feds-localnav-title').setAttribute('daa-ll', `${title}_localNav|${isActive ? 'close' : 'open'}`);
     });
+    //@end
 
     const curtain = localNav.querySelector('.feds-localnav-curtain');
     curtain.addEventListener('click', (e) => {

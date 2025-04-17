@@ -1,20 +1,38 @@
+
+window.__hydrate__ = [];
+
 /* eslint-disable no-console */
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 // Function to ensure an element has a unique hydration ID
-function ensureHydrateId(element) {
-  if (!element) return null;
-  let id = element.getAttribute('data-hydrate-id');
+function ensureHydrateId(elements) {
+  if (!elements) return null;
+  // if lenf then it is multiple elements
+  if(elements.length) {
+    let ids = new Set();
+    let multiId = null;
+    elements.forEach((el) => {
+      let mId = el?.getAttribute('data-hydrate-multi');
+      if(!mId) {
+        if(!multiId) {
+          multiId = `mh-${generateId()}`;
+          ids.add(multiId)
+        }
+        el.setAttribute('data-hydrate-multi', multiId);
+      } else {
+        ids.add(mId)
+      }
+    });
+    return Array.from(ids);
+  }
+  let id = elements.getAttribute('data-hydrate-id');
   if (!id) {
-      id = `hydrate-${generateId()}`;
-      element.setAttribute('data-hydrate-id', id);
+      id = `sh-${generateId()}`;
+      elements.setAttribute('data-hydrate-id', id);
   }
   return id;
 }
-
-
-window.__hydrate__ = [{"name": "amir"}];
 
 window.hydrate = function(config) {
   let lastTwo = null;
