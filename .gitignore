@@ -1,0 +1,24 @@
+.hlx/*
+.aem/*
+coverage
+logs/*
+*node_modules
+.DS_Store
+.idea
+.iml
+.env
+**/mas/*/stats.json
+test-html-results/
+test-results/
+test-a11y-results/
+tmp
+libs/navigation/dist/
+*.mdc
+/.cursor*/
+.cursor\ 2/
+/.cursor 2
+output.html
+output.json
+dist/
+libs/
+temp/
