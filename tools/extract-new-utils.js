@@ -42,7 +42,38 @@ export function scanForHydratedFiles(dir) {
     return hydratedFiles;
 }
 
-export function extractHandlers(outputPath, config) {
+function convertHydrateString(inputStr) {
+    // Regular Expression Breakdown:
+    // ^                   - Start of the string anchor
+    // @hydrate\.         - Matches the literal "@hydrate." (dot needs escaping)
+    // \d+               - Matches one or more digits (the number N)
+    // \({payload:       - Matches the literal "({payload:" (parentheses and brace need escaping)
+    // \{                - Matches the opening curly brace of the payload content (needs escaping)
+    // (.*?)             - Captures any character (.), zero or more times (*), non-greedily (?)
+    //                     This is group 1, the content we want to extract (e.g., "button, dd, num, id")
+    // \}                - Matches the closing curly brace of the payload content (needs escaping)
+    // \}\)              - Matches the literal "})" (brace and parenthesis need escaping)
+    // $                   - End of the string anchor
+    const regex = /^@hydrate\.\d+\({payload:\{(.*?)\}\}\)$/;
+  
+    // Attempt to match the regex against the input string
+    const match = inputStr.match(regex);
+    console.log(match)
+  
+    // Check if a match was found
+    if (match && match[1] !== undefined) {
+      // match[0] is the full matched string
+      // match[1] is the content captured by the first capturing group (.*?)
+      const extractedContent = match[1];
+      // Return the extracted content enclosed in curly braces
+      return `{${extractedContent}}`;
+    } else {
+      // Return null if the pattern doesn't match
+      return '';
+    }
+  }
+
+export function extractHandlers(outputPath, config, blocks) {
     const {entry} = config;
     const code = fs.readFileSync(entry, 'utf-8');
     const hydrate = fs.readFileSync('output.json', 'utf-8');
@@ -71,10 +102,12 @@ export function extractHandlers(outputPath, config) {
         );
   
         if (hydrateComment) {
+          // console.log('++++++', hydrateComment);
           const id = hydrateComment.value.split('.')[1];
+          const a = convertHydrateString(hydrateComment.value);
           
           hydrateBlocks.push({
-            code: generator(path.node, { comments: false }).code,
+            code: `(${a}) => {${generator(path.node, { comments: false }).code}}`,
             id: parseInt(id, 0)
           });
           path.traverse({
@@ -156,9 +189,9 @@ export function extractHandlers(outputPath, config) {
         }
     });
   
-    console.log(JSON.stringify(hydrateBlocks));
-    console.log('-------')
-    console.log(JSON.stringify(hydrator));
+    
+    blocks[lastTwoParts] = blocks[lastTwoParts] || [];
+    blocks[lastTwoParts].push(...hydrateBlocks);
   
     const sortedStatements = [
         ...importNodes,
@@ -166,8 +199,14 @@ export function extractHandlers(outputPath, config) {
     ].map(node => t.isExpression(node) ? t.expressionStatement(node) : node);
     const extractedAST = t.program(sortedStatements);
     const extractedCode = generator(extractedAST).code;
+    const fnsArr = hydrateBlocks.map((blk) => {
+        return `block_${blk.id}: ${blk.code}` 
+    });
+
     hydrationCode.push(`
       ${extractedCode}
+      const hydrationToken = "${lastTwoParts}";
+      const hydrationBlocks = {${fnsArr.join(',')}}
       ${hydrationRuntime}
     `)
     fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
@@ -178,7 +217,7 @@ export function extractHandlers(outputPath, config) {
  * @param {string} sourceDir - Directory containing files to process
  * @param {string} outputDir - Directory to output processed files
  */
-export function processHydratedFiles(sourceDir, outputDir) {
+export function processHydratedFiles(sourceDir, outputDir, blocks) {
     const hydratedFiles = scanForHydratedFiles(sourceDir);
     console.log(`Found ${hydratedFiles.length} files with hydration markers`);
 
@@ -191,7 +230,7 @@ export function processHydratedFiles(sourceDir, outputDir) {
         const relativePath = path.relative(sourceDir, file);
         const outputPath = path.join(outputDir, `${path.basename(file, '.js')}-hydrate.js`);
         
-        extractHandlers(outputPath, { entry: file });
+        extractHandlers(outputPath, { entry: file }, blocks);
         console.log(`Processed: ${relativePath}`);
     });
 }

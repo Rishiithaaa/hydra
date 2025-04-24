@@ -15,7 +15,7 @@
  * Example element: {id: 0, code: "console.log(param1);"}
  * 'id' must uniquely identify a code block in this version.
  */
-export function hydrateDynamically(rawHydratorData, blockDefinitions) {
+export function hydrateDynamically(rawHydratorData, blockDefinitions=[]) {
   // 1. Validate Inputs
   if (!Array.isArray(rawHydratorData)) {
     console.error("Dynamic Hydration (ID Only) failed: rawHydratorData must be an array.", rawHydratorData);
@@ -31,7 +31,7 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions) {
   }
   if (blockDefinitions.length === 0) {
     console.log("No hydration block definitions found.");
-    return;
+    // return;
   }
 
   console.log(`Starting dynamic hydration (ID Only). Found ${rawHydratorData.length} raw tasks and ${blockDefinitions.length} block definitions.`);
@@ -52,10 +52,10 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions) {
     }
   });
 
-  if (blockMap.size === 0) {
-    console.error("No valid block definitions were processed into the lookup map. Cannot proceed.");
-    return;
-  }
+//   if (blockMap.size === 0) {
+//     console.error("No valid block definitions were processed into the lookup map. Cannot proceed.");
+//     return;
+//   }
 
   // 2. Process each raw hydration task instance from SSR
   rawHydratorData.forEach((rawTask, taskIndex) => {
@@ -70,10 +70,10 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions) {
     const blockCodeString = blockMap.get(blockId);
 
     // Skip if no code found for this task's block definition ID
-    if (blockCodeString === undefined) {
-      console.warn(`No code definition found for block id "${blockId}" (Task index ${taskIndex}). Skipping task.`);
-      return;
-    }
+    // if (blockCodeString === undefined) {
+    //   console.warn(`No code definition found for block id "${blockId}" (Task index ${taskIndex}). Skipping task.`);
+    //   return;
+    // }
 
     try {
       const resolvedArgs = {}; // Holds resolved elements and data for this instance
@@ -141,10 +141,14 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions) {
       // 5. Prepare for Code Execution
       const argNames = Object.keys(resolvedArgs);
       const argValues = argNames.map(name => resolvedArgs[name]);
+      console.log(argNames);
+
+      hydrationBlocks[`block_${rawTask.id}`](resolvedArgs);
 
       // 6. Execute the User's Hydration Code for this specific instance
-      const hydrateAction = new Function(...argNames, blockCodeString);
-      hydrateAction(...argValues);
+      // const hydrateAction = new Function(...argNames, blockCodeString);
+      // const hydrateAction = function (...argValues) { eval(blockCodeString) };
+      // hydrateAction(...argValues);
 
     } catch (error) {
       console.error(`Error during dynamic hydration execution (ID: ${blockId}, Task Index: ${taskIndex}):`, error, "Task details:", rawTask);
@@ -160,8 +164,10 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions) {
 export function initializeDynamicHydration() {
   // Assumes window.__HYDRATOR_DATA__ (raw SSR data array) and
   // window.__BLOCK_DEFINITIONS__ (block definitions array) are populated globally
-  const rawData = window.__HYDRATOR_DATA__ || [];
-  const blockDefs = window.__BLOCK_DEFINITIONS__ || [];
+  const token = hydrationToken;
+  const rawData = (window.hydrateData || []).filter(data => data.file === token);
+  const blockDefs = (window.code || [])[token];
+  
 
   // Call the main hydration function
   hydrateDynamically(rawData, blockDefs);

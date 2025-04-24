@@ -4,10 +4,11 @@ import { performance } from "perf_hooks";
 import { minify } from 'html-minifier';
 
 const scriptContent = fs.readFileSync('./headless/inline.js', 'utf-8');
+// const fns = fs.readFileSync('./dist/code.json', 'utf-8');
 
 const run = async () => {
   const startTime = performance.now();
-  const browser = await puppeteer.launch({ headless: false, args: [
+  const browser = await puppeteer.launch({ headless: "new", args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
@@ -77,7 +78,7 @@ const run = async () => {
   await Promise.all(cssPromises);
 
   // Wait for a key element to be sure the page is ready
-  await page.waitForSelector(".feds-footer-wrapper");
+  await page.waitForSelector("#page-load-ok-milo");
 //   Extract HTML
 //   Inject inline styles
   // await page.evaluate((cssMap) => {
@@ -98,8 +99,20 @@ const run = async () => {
   // const firstHalf = cssEntries.slice(0, midPoint);
   // const secondHalf = cssEntries.slice(midPoint);
 
+  const hydrationTasks = await page.evaluate(() => window.__hydrate__);
 
-  let html = await page.evaluate(function(scriptContent, cssEntries) { 
+  await page.evaluate(() => {
+    const basePath = 'https://main--cc--adobecom.aem.live'; // change this to your desired base path
+    document.querySelectorAll('a[href^="#"][data-modal-path]').forEach(anchor => {
+      const modalPath = anchor.getAttribute('data-modal-path');
+      if (!modalPath.startsWith(basePath)) {
+        anchor.setAttribute('data-modal-path', basePath + modalPath);
+      }
+    });
+  });
+
+
+  let html = await page.evaluate(function(scriptContent, cssEntries, hydrationTasks) { 
     // const cssEntries = cssObject;
     const midPoint = Math.ceil(cssEntries.length / 2);
     const firstHalf = cssEntries.slice(0, midPoint);
@@ -116,14 +129,16 @@ const run = async () => {
     .replace(/<meta\b[^>]*http-equiv=["']content-security-policy["'][^>]*>/gi, '')
     .replace(/<style>\s*body\s*{\s*display\s*:\s*none\s*;\s*}\s*<\/style>/gi, '')
     .replace(/<style>[^<]*body\s*{\s*display\s*:\s*none[^<]*<\/style>/gi, '')
-    .replace('</body>', 
+    .replace('</body>',
         `<style>.consonant-Wrapper {height: unset !important;} ${secondHalf.map(([_, css]) => css).join('\n')}</style>
+        <script >
+        window.hydrateData = ${JSON.stringify(hydrationTasks)};
+        </script>
+        <script src="https://stage.adobeccstatic.com/unav/1.3/UniversalNav.js" type="text/javascript"></script>
         <script type="module">
-        ${scriptContent}
-        </script><script src="https://stage.adobeccstatic.com/unav/1.3/UniversalNav.js" type="text/javascript"></script>\n</body>`)
-}, scriptContent, [...cssMap.entries()]);
-
-const hydrationTasks = await page.evaluate(() => window.__hydrate__);
+          import "./libs/blocks/dist/loader.js";
+        </script>\n</body>`)
+}, scriptContent, [...cssMap.entries()], hydrationTasks);
 
 const minifiedHtml = minify(html, {
   collapseWhitespace: true,
@@ -133,7 +148,7 @@ const minifiedHtml = minify(html, {
   useShortDoctype: true
 });
  
-  // await browser.close();
+  await browser.close();
   await fs.writeFileSync("output.html", minifiedHtml);
   await fs.writeFileSync("output.json", JSON.stringify(hydrationTasks));
   const endTime = performance.now();

@@ -10,8 +10,9 @@ const traverse = traverseDefault.default || traverseDefault;
 const generator = generatorDefault.default || generatorDefault;
 const beautify = jsBeautify.js;
 
-export function extractHandlers(outputPath, config) {
+export function extractHandlers(outputPath, config, blocks) {
   const {entry} = config;
+  console.log(entry);
   const code = fs.readFileSync(entry, 'utf-8');
   const hydrate = fs.readFileSync('output.json', 'utf-8');
   const ast = parser.parse(code, { sourceType: 'module', ranges: true });
@@ -129,7 +130,7 @@ export function extractHandlers(outputPath, config) {
   ].map(node => t.isExpression(node) ? t.expressionStatement(node) : node);
   const extractedAST = t.program(sortedStatements);
   const extractedCode = generator(extractedAST).code;
-  console.log(hydrateBlocks);
+  console.log(hydrateBlocks);  
   console.log('-----')
   hydrationCode.push(`
     ${extractedCode} // Assuming this is some initial code

@@ -14,7 +14,7 @@ export const config = {
     // Source directory (relative to Milo root)
     sourceDir: '../milo/libs',
     // Project temp directory name
-    projectTempDir: 'temp',
+    projectTempDir: './',
     // Destination folder name within project temp
     destFolderName: 'libs'
 };
