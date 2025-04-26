@@ -483,7 +483,7 @@ export class Gnav {
       itemWrapper.appendChild(clonedItem);
     });
 
-   //@hydrate.4({payload:{localNav,title}}) 
+   window.hydrate && window.hydrate({id:4, payload:{localNav,title}}) 
     localNav.querySelector('.feds-localnav-title').addEventListener('click', () => {
       localNav.classList.toggle('feds-localnav--active');
       const isActive = localNav.classList.contains('feds-localnav--active');
@@ -898,6 +898,15 @@ export class Gnav {
     toggle?.setAttribute('daa-ll', `hamburgermenu|${isExpanded ? 'open' : 'close'}`);
   };
 
+  setHamburgerPadding() {
+    if (isDesktop.matches) {
+      this.elements.mainNav.style.removeProperty('padding-bottom');
+    } else {
+      const offset = Math.ceil(this.elements.topnavWrapper.getBoundingClientRect().bottom);
+      this.elements.mainNav.style.setProperty('padding-bottom', `${2 * offset}px`);
+    }
+  };
+
   decorateToggle = () => {
     if (!this.mainNavItemCount || (this.newMobileNav && !this.hasMegaMenu())) return '';
 
@@ -911,16 +920,8 @@ export class Gnav {
       data-feds-preventAutoClose>
       </button>`;
 
-    const setHamburgerPadding = () => {
-      if (isDesktop.matches) {
-        this.elements.mainNav.style.removeProperty('padding-bottom');
-      } else {
-        const offset = Math.ceil(this.elements.topnavWrapper.getBoundingClientRect().bottom);
-        this.elements.mainNav.style.setProperty('padding-bottom', `${2 * offset}px`);
-      }
-    };
 
-    //@hydrate.2({payload:{toggle}})
+    window.hydrate && window.hydrate({id:2, payload:{toggle}})
     toggle.addEventListener('click', () => logErrorFor(async () => {
       this.toggleMenuMobile();
 
@@ -1114,6 +1115,26 @@ export class Gnav {
     }
   };
 
+  makeTabActive(popup) {
+    const tabbuttons = popup.querySelectorAll('.global-navigation .tabs button');
+    const tabpanels = popup.querySelectorAll('.global-navigation .tab-content [role="tabpanel"]');
+    closeAllTabs(tabbuttons, tabpanels);
+    const { origin, pathname } = window.location;
+    const url = `${origin}${pathname}`;
+    setTimeout(() => {
+      const activeLink = [
+        ...popup.querySelectorAll('a:not([data-modal-hash])'),
+      ].find((el) => (el.href === url || el.href.startsWith(`${url}?`) || el.href.startsWith(`${url}#`)));
+      const tabIndex = activeLink ? +activeLink.parentNode.id : 0;
+      const selectTab = popup.querySelectorAll('.tab')[tabIndex];
+      const daallTab = selectTab.getAttribute('daa-ll');
+      selectTab.setAttribute('daa-ll', `${daallTab.replace('click', 'open')}`);
+      selectTab?.click();
+      selectTab.setAttribute('daa-ll', `${daallTab.replace('open', 'click')}`);
+      selectTab?.focus();
+    }, 100);
+  }
+
   decorateMainNavItem = (item, index) => {
     const itemType = this.getMainNavItemType(item);
 
@@ -1212,7 +1233,7 @@ export class Gnav {
             originalContent = await transformTemplateToMobile(popup, item, this.isLocalNav());
             popup.querySelector('.close-icon')?.addEventListener('click', this.toggleMenuMobile);
           }
-          //@hydrate.1({payload:{isDesktop, popup}})
+          window.hydrate && window.hydrate({id:1, payload:{isDesktop, popup}})
           isDesktop.addEventListener('change', async () => {
             enableMobileScroll();
             if (isDesktop.matches) {
@@ -1258,7 +1279,7 @@ export class Gnav {
           </${tag}>`;
 
         // Toggle trigger's dropdown on click
-        //@hydrate.0({payload:{isDesktop, dropdownTrigger, isSectionMenu }})
+        window.hydrate && window.hydrate({id:0, payload:{isDesktop, dropdownTrigger, isSectionMenu }})
         dropdownTrigger.addEventListener('click', (e) => {
           if (!isDesktop.matches && this.newMobileNav && isSectionMenu) {
             const popup = dropdownTrigger.nextElementSibling;
