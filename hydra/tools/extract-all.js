@@ -1,7 +1,7 @@
 // build/extract-all.js
 import fs from 'fs';
 import path from 'path';
-import { extractHandlers } from './extract-utils.js';
+import { extractHandlers } from './extract-new-utils.js';
 import config from './components.config.js';
 
 async function extractAllComponents() {

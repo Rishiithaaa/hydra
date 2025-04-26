@@ -8,6 +8,7 @@ import {
   loadScript,
   getGnavSource,
   getFedsPlaceholderConfig,
+  makeSerializable,
 } from '../../utils/utils.js';
 import {
   closeAllDropdowns,
@@ -326,7 +327,7 @@ const removeLocalNav = () => {
   document.querySelector('.feds-localnav')?.remove();
 };
 
-class Gnav {
+export class Gnav {
   constructor({ content, block, newMobileNav } = {}) {
     this.content = content;
     this.block = block;
@@ -482,8 +483,7 @@ class Gnav {
       itemWrapper.appendChild(clonedItem);
     });
 
-    window.hydrate && window.hydrate({id:0, elements:{localNav}})
-    //@hydrate.0({elements:{localNav}})
+   //@hydrate.4({payload:{localNav,title}}) 
     localNav.querySelector('.feds-localnav-title').addEventListener('click', () => {
       localNav.classList.toggle('feds-localnav--active');
       const isActive = localNav.classList.contains('feds-localnav--active');
@@ -920,7 +920,8 @@ class Gnav {
       }
     };
 
-    const onToggleClick = async () => {
+    //@hydrate.2({payload:{toggle}})
+    toggle.addEventListener('click', () => logErrorFor(async () => {
       this.toggleMenuMobile();
 
       if (this.blocks?.search?.instance) {
@@ -930,9 +931,8 @@ class Gnav {
       }
 
       if (this.isToggleExpanded()) setHamburgerPadding();
-    };
-
-    toggle.addEventListener('click', () => logErrorFor(onToggleClick, 'Toggle click failed', 'gnav', 'error'));
+    }, 'Toggle click failed', 'gnav', 'error'));
+    //@end
 
     const onDeviceChange = () => {
       if (isDesktop.matches) {
@@ -1212,6 +1212,7 @@ class Gnav {
             originalContent = await transformTemplateToMobile(popup, item, this.isLocalNav());
             popup.querySelector('.close-icon')?.addEventListener('click', this.toggleMenuMobile);
           }
+          //@hydrate.1({payload:{isDesktop, popup}})
           isDesktop.addEventListener('change', async () => {
             enableMobileScroll();
             if (isDesktop.matches) {
@@ -1223,6 +1224,7 @@ class Gnav {
               this.block.classList.add('new-nav');
             }
           });
+          //@end
           if (this.isLocalNav()) {
             decorateLocalNavItems(item, template);
           }
@@ -1256,6 +1258,7 @@ class Gnav {
           </${tag}>`;
 
         // Toggle trigger's dropdown on click
+        //@hydrate.0({payload:{isDesktop, dropdownTrigger, isSectionMenu }})
         dropdownTrigger.addEventListener('click', (e) => {
           if (!isDesktop.matches && this.newMobileNav && isSectionMenu) {
             const popup = dropdownTrigger.nextElementSibling;
@@ -1396,11 +1399,15 @@ export default async function init(block) {
     throw error;
   }
   setAsyncDropdownCount(content.querySelectorAll('.large-menu').length);
-  const gnav = new Gnav({
+  const HGnav = makeSerializable(Gnav);
+  const gnav = new HGnav({
     content,
     block,
     newMobileNav,
   });
+  window.gnav = gnav;
+  window.Gnav = HGnav;
+  
   if (newMobileNav && !isDesktop.matches) block.classList.add('new-nav');
   await gnav.init();
   if (gnav.isLocalNav()) block.classList.add('local-nav');

@@ -4,7 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "libs": "aem up --port=6456"
   },
   "dependencies": {
     "html-minifier": "^4.0.0",

@@ -1,41 +1,315 @@
 
 window.__hydrate__ = [];
 
-/* eslint-disable no-console */
+// -------- Part 1: Prerequisite Helpers --------
+
 function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-// Function to ensure an element has a unique hydration ID
-function ensureHydrateId(elements) {
-  if (!elements) return null;
-  // if lenf then it is multiple elements
-  if(elements.length) {
-    let ids = new Set();
-    let multiId = null;
-    elements.forEach((el) => {
-      let mId = el?.getAttribute('data-hydrate-multi');
-      if(!mId) {
-        if(!multiId) {
-          multiId = `mh-${generateId()}`;
-          ids.add(multiId)
-        }
-        el.setAttribute('data-hydrate-multi', multiId);
-      } else {
-        ids.add(mId)
-      }
-    });
-    return Array.from(ids);
-  }
-  let id = elements.getAttribute('data-hydrate-id');
-  if (!id) {
-      id = `sh-${generateId()}`;
-      elements.setAttribute('data-hydrate-id', id);
-  }
-  return id;
+  // Simple random ID generator
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
+/**
+ * Ensures DOM elements have hydration IDs and returns the ID info. (SSR Context)
+ * Assigns 'data-hydrate-id' or 'data-hydrate-multi'.
+ */
+function ensureHydrateId(elementOrList) {
+  // ... (Implementation from the previous detailed answer) ...
+  if (!elementOrList) return null;
+  // if(elementOrList instanceof MediaQueryList) {
+  //   return `MediaQueryList-${elementOrList.media}`;
+  // }
+  if (elementOrList instanceof HTMLElement) {
+    let id = elementOrList.getAttribute('data-hydrate-id');
+    if (!id) { id = `sh-${generateId()}`; elementOrList.setAttribute('data-hydrate-id', id); }
+    return id;
+  }
+  if (typeof elementOrList[Symbol.iterator] === 'function' && typeof elementOrList.length === 'number') {
+    if (elementOrList.length === 0) return [];
+    let ids = new Set(); let assignedMultiId = null;
+    for (const el of elementOrList) {
+      if (!(el instanceof HTMLElement)) { continue; }
+      let existingMultiId = el.getAttribute('data-hydrate-multi');
+      if (!existingMultiId) { if (!assignedMultiId) assignedMultiId = `mh-${generateId()}`; el.setAttribute('data-hydrate-multi', assignedMultiId); ids.add(assignedMultiId); }
+      else { ids.add(existingMultiId); }
+    } return Array.from(ids);
+  } return null;
+}
+
+const CLASS_REGISTRY = {};
+export function makeSerializable(Class) {
+    const className = Class.name;
+    if (!className) {
+        console.error("makeSerializable requires a named class.");
+        return Class; // Return original if anonymous
+    }
+    if (!CLASS_REGISTRY[className]) {
+         CLASS_REGISTRY[className] = Class;
+    } else {}
+
+    // Add toJSON to the ORIGINAL class prototype if it doesn't exist
+    if (!Class.prototype.hasOwnProperty('toJSON')) {
+        Class.prototype.toJSON = function() {};
+    }
+
+     // --- User's Wrapper Approach ---
+    const WrappedClass = class extends Class {
+        constructor(...args) {
+            super(...args);
+             Object.defineProperty(this, '__args', {
+                 value: args,
+                 enumerable: false, // Keep it out of for...in and Object.keys/entries
+                 writable: false,
+                 configurable: true // Allows deletion if needed
+             });
+        }
+    };
+
+    WrappedClass.prototype.toJSON = function() {
+        // Get other instance properties (own enumerable)
+        const otherProps = {};
+        for (const key in this) {
+             if (Object.prototype.hasOwnProperty.call(this, key)) {
+                 otherProps[key] = this[key];
+             }
+         }
+
+        return {
+           __type__: className,
+            __type: className,
+            __args: this.__args || [],
+            ...otherProps
+        };
+    };
+    return WrappedClass;
+}
+
+/**
+ * Custom serialization: Handles DOM elements/NodeLists AND uses makeSerializable's toJSON.
+ *
+ * @param {*} value The value to serialize.
+ * @returns {string} The JSON string representation.
+ */
+function customStringifyWithDom(value) {
+  const visited = new WeakSet();
+  const replacer = (key, val) => {
+    if (val instanceof HTMLBodyElement) {
+      return { "__type__": "HTMLBodyElement"};
+    }
+    if (val instanceof HTMLElement || val instanceof NodeList) {
+        const idInfo = ensureHydrateId(val);
+        if (idInfo) {
+            if (Array.isArray(idInfo)) return { "__type__": "NodeList", "ids": idInfo };
+            else return { "__type__": "HTMLElement", "id": idInfo };
+        } else {
+             if(val instanceof NodeList && val.length === 0) return { "__type__": "NodeList", "ids": [] };
+            return null;
+        }
+    }
+
+    if (typeof val === 'object' && val !== null) {
+      if (visited.has(val)) throw new Error('Circular reference detected');
+      visited.add(val);
+    }
+
+    // 3. Let JSON.stringify handle the rest. If 'val' is an instance of a
+    //    class wrapped by makeSerializable, stringify will call its toJSON.
+    return val;
+  };
+
+  return JSON.stringify(value, replacer);
+}
+
+/**
+ * Custom deserialization function: Revives DOM elements/NodeLists AND
+ * custom classes using the CLASS_REGISTRY populated by makeSerializable.
+ * Reconstructs classes using the __args property.
+ *
+ * @param {string} jsonString The JSON string to parse.
+ * @returns {*} The deserialized value.
+ */
+/**
+ * Custom deserialization function - DEBUGGING VERSION.
+ */
+function customParseWithDomAndClasses(jsonString) {
+  // CLASS_REGISTRY should be populated on the client side by makeSerializable
+  const registry = CLASS_REGISTRY;
+  // *** DEBUG STEP 1: Verify Registry ***
+  console.log("DEBUG: Using CLASS_REGISTRY:", registry);
+  if (Object.keys(registry).length === 0) {
+      console.warn("DEBUG: CLASS_REGISTRY is empty! Ensure makeSerializable(YourClass) ran on the client.");
+  }
+
+
+  const reviver = (key, value) => {
+    // Check if 'value' is an object, not null, and has our special __type__ property
+    if (typeof value === 'object' && value !== null && (value.hasOwnProperty('__type__') || value.hasOwnProperty('__type'))) {
+      const type = value.__type__;
+
+      // --- Revive DOM Elements/NodeLists (Keep this logic) ---
+      if (type === "HTMLElement" && typeof value.id === 'string') {
+          const element = document.querySelector(`[data-hydrate-id="${value.id}"]`);
+          // console.log(`DEBUG: Revived HTMLElement for type "${type}", key "${key}". Found:`, !!element);
+          return element;
+       }
+
+      if (type === "HTMLBodyElement") {
+        return document.body;
+      }
+       if (type === "NodeList" && Array.isArray(value.ids)) {
+            let nodeList;
+            if(value.ids.length > 0) {
+               nodeList = document.querySelectorAll(value.ids.map(mId => `[data-hydrate-multi="${mId}"]`).join(','));
+            } else {
+               nodeList = document.querySelectorAll(`.non-existent-${Date.now()}`); // Empty NodeList
+            }
+            // console.log(`DEBUG: Revived NodeList for type "${type}", key "${key}". Length:`, nodeList.length);
+            return nodeList;
+       }
+
+
+      // --- Revive Custom Classes ---
+      const Constructor = registry[type];
+      // *** DEBUG STEP 2: Check Constructor Lookup ***
+      console.log(`DEBUG: Found __type__="${type}" for key "${key}". Attempting lookup in registry... Found Constructor:`, Constructor ? Constructor.name : 'NO');
+
+      if (Constructor && typeof Constructor === 'function') {
+         // Check if __args property exists (meaning it was serialized by makeSerializable wrapper)
+         if (value.hasOwnProperty('__args') && Array.isArray(value.__args)) {
+            try {
+                // *** DEBUG STEP 3: Check Instantiation ***
+                console.log(`DEBUG: Attempting 'new ${type}(...args)' with args:`, JSON.stringify(value.__args));
+                const instance = new Constructor(...value.__args); // <<< INSTANTIATION HAPPENS HERE
+                // Apply other serialized properties that were not constructor args
+                const otherState = { ...value };
+                delete otherState.__type;
+                delete otherState.__args;
+                Object.assign(instance, otherState);
+                console.log(`DEBUG: State assigned. Prototype is now:`, Object.getPrototypeOf(instance)); // Should NOT have changed
+
+                console.log(`DEBUG: RETURNING INSTANCE for type "${type}"`, instance);
+                return instance; // *** This should return the object with the correct prototype ***
+            } catch (e) {
+                 console.error(`DEBUG: Error during 'new ${type}(...args)':`, e, "Args:", value.__args, "Value:", value);
+                 return value; // Return original object on error
+            }
+         } else {
+             console.warn(`DEBUG: Cannot revive class ${type} using __args: __args property missing or not an array.`);
+             return value; // Return original object if cannot revive
+         }
+      } else {
+          // Constructor not found in registry
+           console.warn(`DEBUG: Constructor for type "${type}" not found in registry or not a function.`);
+      }
+    }
+    // Return value unchanged if it's not a marker object we handle
+    return value;
+  }; // End Reviver
+
+  try {
+      return JSON.parse(jsonString, reviver);
+  } catch (e) {
+      console.error("Error during customParse:", e);
+      return undefined;
+  }
+}
+
+window.customParseWithDomAndClasses = customParseWithDomAndClasses;
+window.makeSerializable = makeSerializable;
+window.customStringifyWithDom = customStringifyWithDom;
+
+
+
+// == SSR / Puppeteer Side ==
+/*
+function runSSR() {
+    try {
+        console.log("SSR: Running example...");
+        // *** Use the WRAPPED constructors for instances to be serialized ***
+        const p = new SerializablePoint(10, 20);
+        const c = new SerializableCircle(5, p); // Pass revived 'p' or new SerializablePoint
+
+        const someDiv = document.createElement('div'); // Create element
+        document.body.appendChild(someDiv);
+        // Need to access original methods if they weren't on wrapped prototype?
+        // makeSerializable puts them on prototype via inheritance.
+        c.setElement(someDiv); // Associate element (method is inherited)
+
+        const dataToSerialize = { myCircle: c, startPoint: p };
+        // Use the stringify that handles DOM elements
+        const serialized = customStringifyWithDom(dataToSerialize);
+        console.log("SSR Serialized:", serialized);
+        // Expected output includes __type__, __args, other props for classes, and element markers
+
+        document.body.removeChild(someDiv); // Clean up
+
+        // Embed 'serialized' in HTML response for the client
+        // e.g., <script type="application/json" id="hydrationData">${serialized}</script>
+    } catch (error) {
+        console.error("SSR Error:", error);
+    }
+}
+// runSSR();
+*/
+
+// == Client Side ==
+/*
+function runClient() {
+    console.log("Client: Running example...");
+    // CLASS_REGISTRY should be populated from makeSerializable calls running on client
+
+    // Get the raw JSON string
+    const dataElement = document.getElementById('hydrationData');
+    const rawJsonString = dataElement ? dataElement.textContent : null;
+    // const rawJsonString = window.__HYDRATION_DATA_RAW__; // Alternate way
+
+    if (rawJsonString) {
+        console.log("Client Raw JSON:", rawJsonString);
+        // Parse using the combined reviver
+        const revivedData = customParseWithDomAndClasses(rawJsonString);
+        console.log("Client Revived:", revivedData);
+
+        // Use the revived data - instances should be of the ORIGINAL types (Point, Circle)
+        if (revivedData && revivedData.myCircle instanceof Circle && revivedData.startPoint instanceof Point) {
+            console.log("Client: Revival successful!");
+            revivedData.myCircle.display(); // Should work
+            revivedData.startPoint.display(); // Should work
+
+            if (revivedData.myCircle.center instanceof Point) {
+                console.log("Client: Nested Point revived correctly.");
+            }
+            if (revivedData.myCircle.relatedElement instanceof HTMLElement) {
+                console.log("Client: Element reference revived correctly!");
+                revivedData.myCircle.relatedElement.style.outline = '3px dashed purple';
+            } else {
+                 console.warn("Client: Element reference was not revived correctly.");
+            }
+        } else {
+            console.error("Client: Revival failed or data structure mismatch!");
+        }
+    } else {
+         console.log("Client: No hydration data found.");
+    }
+}
+
+// Run on client after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', runClient);
+} else {
+  runClient();
+}
+*/
+
 window.hydrate = function(config) {
-  let lastTwo = null;
+  // Destructure config for clarity
+  const { id, payload } = config;
+
+  // Basic validation
+  if (id === undefined || id === null) {
+    console.error('Hydration config must include an "id".');
+    return;
+  }
+
+  let file = null;
   try {
     throw new Error();
   } catch (e) {
@@ -46,34 +320,40 @@ window.hydrate = function(config) {
     if (match && match[1]) {
       const url = new URL(match[1]);
       const segments = url.pathname.split('/').filter(Boolean); // remove empty strings
-      lastTwo = segments.slice(-2).join('/');
+      file = segments.slice(-2).join('/');
     }
   }
   const task = {
+    id,
+    file,
     elements: {},
     data: {},
   };
 
-  task.file = lastTwo;
-  task.id = config.id;
+  // Process the payload object to categorize items
+  Object.entries(payload||{}).forEach(([key, value]) => {
+    // Attempt to get hydration ID(s) for the value
+    const hydrationIdInfo = ensureHydrateId(value);
 
-  if (config.elements) {
-    Object.keys(config.elements).forEach(key => {
-      task.elements[key] = ensureHydrateId(config.elements[key]);
-    });
-  }
-
-  // Process serializable data
-  if (config.data) {
-      // Basic JSON serialization - might need more robust handling
+    if (hydrationIdInfo !== null) {
+      // If ensureHydrateId returned an ID string or an array of IDs, treat as element(s)
+      task.elements[key] = hydrationIdInfo;
+    } else if (value !== null && !(value instanceof HTMLElement) && typeof value?.length !== 'number'){
+      // If it wasn't recognized as an element/list by ensureHydrateId,
+      // and it's not null/HTMLElement/array-like, treat it as data.
+      // (We re-check null/HTMLElement/length here for safety, though ensureHydrateId handles most)
       try {
-          task.data = JSON.parse(JSON.stringify(config.data));
+        // Attempt to stringify/parse to ensure valid JSON & deep clone primitive/plain objects/arrays
+        task.data[key] = JSON.parse(JSON.stringify(value));
       } catch (e) {
-          console.error("Hydration data serialization error:", e);
-          // Decide how to handle non-serializable data
-          task.data = {};
+        console.warn(`Hydration (id: ${id}): Could not serialize data for key "${key}". Skipping. Error:`, e);
+        // Optionally store a placeholder like null or skip the key
+        // task.data[key] = null;
       }
-  }
+    }
+    // If value is null or an empty list, ensureHydrateId returns null,
+    // and it won't match the 'else if' either, so it's correctly skipped.
+  });
   window.__hydrate__.push(task);
 };
 

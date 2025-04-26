@@ -78,6 +78,11 @@ export default async function init(el) {
   if (metadata.background) handleBackground(metadata, section);
   if (metadata.layout) handleLayout(metadata.layout.text, section);
   if (metadata.masonry) handleMasonry(metadata.masonry.text, section);
-  if (metadata.delay) handleDelay(metadata.delay.text, section);
+  if (metadata.delay) {
+    const x = metadata.delay.text
+     //@hydrate.0({payload:{x, section}})
+    handleDelay(x, section);
+    //@end
+  }
   if (metadata.anchor) handleAnchor(metadata.anchor.text, section);
 }
