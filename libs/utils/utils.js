@@ -15,6 +15,9 @@ function generateId() {
 function ensureHydrateId(elementOrList) {
   // ... (Implementation from the previous detailed answer) ...
   if (!elementOrList) return null;
+  if (typeof elementOrList === "string") {
+    return null;
+  }
   // if(elementOrList instanceof MediaQueryList) {
   //   return `MediaQueryList-${elementOrList.media}`;
   // }
@@ -130,9 +133,8 @@ function customStringifyWithDom(value) {
 /**
  * Custom deserialization function - DEBUGGING VERSION.
  */
-function customParseWithDomAndClasses(jsonString) {
+function customParseWithDomAndClasses(jsonString, registry) {
   // CLASS_REGISTRY should be populated on the client side by makeSerializable
-  const registry = CLASS_REGISTRY;
   // *** DEBUG STEP 1: Verify Registry ***
   console.log("DEBUG: Using CLASS_REGISTRY:", registry);
   if (Object.keys(registry).length === 0) {
@@ -168,7 +170,7 @@ function customParseWithDomAndClasses(jsonString) {
 
 
       // --- Revive Custom Classes ---
-      const Constructor = registry[type];
+      const Constructor = registry[type].inh;
       // *** DEBUG STEP 2: Check Constructor Lookup ***
       console.log(`DEBUG: Found __type__="${type}" for key "${key}". Attempting lookup in registry... Found Constructor:`, Constructor ? Constructor.name : 'NO');
 
@@ -345,6 +347,18 @@ window.hydrate = function(config) {
       try {
         // Attempt to stringify/parse to ensure valid JSON & deep clone primitive/plain objects/arrays
         task.data[key] = JSON.parse(JSON.stringify(value));
+      } catch (e) {
+        console.warn(`Hydration (id: ${id}): Could not serialize data for key "${key}". Skipping. Error:`, e);
+        // Optionally store a placeholder like null or skip the key
+        // task.data[key] = null;
+      }
+    }else if (value !== null && !(value instanceof HTMLElement) && typeof value === "string"){
+      // If it wasn't recognized as an element/list by ensureHydrateId,
+      // and it's not null/HTMLElement/array-like, treat it as data.
+      // (We re-check null/HTMLElement/length here for safety, though ensureHydrateId handles most)
+      try {
+        // Attempt to stringify/parse to ensure valid JSON & deep clone primitive/plain objects/arrays
+        task.data[key] = value;
       } catch (e) {
         console.warn(`Hydration (id: ${id}): Could not serialize data for key "${key}". Skipping. Error:`, e);
         // Optionally store a placeholder like null or skip the key
