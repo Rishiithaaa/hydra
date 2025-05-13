@@ -1,0 +1,1 @@
+{"accordion/accordion.js":[{"code":"({button, dd, num, id}) => {button.addEventListener('click', e => {\n  handleClick(e.target, dd, num, id);\n});}","id":0},{"code":"() => {for (let i = 0; i < 4; i++) {\n  console.log(i, counter);\n  counter++;\n}}","id":2}]}

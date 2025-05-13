@@ -1,0 +1,386 @@
+.mep-preview-overlay {
+  z-index: 101;
+  position: fixed;
+  bottom: 16px;
+  left: 32px;
+  color: #eee; 
+  font-size: 24px;
+  display: block !important;
+  font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
+}
+
+.mep-badge {
+  border: 2px solid white;
+  border-radius: 32px;
+  background-color: #280;
+  color: #eee;
+  font-size: 18px;
+  padding: 12px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.mep-badge .mep-open,
+.mep-popup-header .mep-close {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 2px solid;
+  border-radius: 100px;
+  margin-right: 16px;
+}
+
+.mep-popup-header > div > div:not(.mep-manifest-page-info-title) {
+  padding-left: 15px;
+}
+
+.mep-popup, .mep-badge {
+  direction: ltr;
+}
+
+.mep-popup .mep-popup-body,
+.mep-popup .mep-manifest-list {
+  display: flex;
+  gap: 12px;
+}
+
+.mep-popup .mep-popup-body,
+.mep-popup .mep-manifest-list {
+  flex-direction: column;
+}
+
+.mep-popup .mep-section {
+  gap: 8px;
+  max-width: 444px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 calc(100% / 2 - 8px);
+}
+
+.mep-divider {
+  border-bottom: 1px solid #909090;
+}
+
+.mep-badge .mep-open::after,
+.mep-toggle-advanced::before {
+  content: '';
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-top: 2px solid;
+  border-right: 2px solid;
+  transform: rotate(135deg);
+  left: 6px;
+  bottom: 7px;
+  transition-duration: 0.2s;
+}
+
+.mep-hidden .mep-badge .mep-open::after {
+  transform: rotate(-45deg);
+  left: 6px;
+  bottom: 5px;
+}
+
+.mep-popup-header svg {
+  height: 20px;
+}
+
+.mep-popup-header .mep-close {
+  margin-right: 0;
+  cursor: pointer;
+}
+
+.mep-popup-header .mep-close::after {
+  content: 'x';
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  left: 5px;
+  top: -6px;
+  font-size: 18px;
+}
+
+.mep-popup {
+  font-size: 16px;
+}
+
+.mep-popup .mep-columns {
+  display:flex;
+  gap: 16px;
+  text-transform: capitalize;
+}
+
+.mep-popup .mep-columns .mep-selected-variant {
+  text-transform: initial;
+}
+
+.mep-popup .mep-column a {
+  position: absolute;
+  right: 0;
+}
+
+.mep-popup a.mep-edit-manifest {
+  cursor: pointer;
+  display: flex;
+  max-width: max-content;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mep-popup .mep-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px;
+  border-radius: 16px 16px 0 0;
+  position: relative;
+}
+
+.mep-popup .mep-popup-header > div {
+  margin: 8px 0;
+}
+
+.mep-popup h6 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mep-popup h4,
+.mep-popup h5 {
+  margin: 0;
+}
+
+.mep-popup h4 {
+  font-size: 18px;
+}
+
+.mep-popup h5 {
+  font-size: 14px;
+}
+
+.mep-popup p {
+  margin: 0;
+}
+
+.mep-hidden .mep-popup {
+  display: none;
+}
+
+.mep-variant {
+  margin: 16px;
+  display: flex;
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.mep-variant-selected {
+  background-color: #666;
+}
+
+.mep-variant > div {
+  flex: 1 1 auto;
+}
+
+.mep-variant > div.mep-button {
+  flex: 0 0 auto;
+}
+
+.mep-popup .mep-popup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: right;
+  padding: 12px;
+}
+
+.mep-popup .target-activity-name {
+  font-style: italic;
+}
+
+.mep-manifest-info,
+.mep-popup label {
+  position: relative;
+}
+
+.mep-manifest-info,
+.mep-experience-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mep-popup select.mep-manifest-variants {
+  width: 100%;
+  overflow: hidden;
+  white-space: pre;
+  -moz-white-space: pre;
+  -o-white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.mep-popup input.new-manifest,
+.mep-popup select.mep-manifest-variants {
+  height: 36px;
+  border: 0;
+  padding: 0 12px;
+  border-radius: 4px;
+}
+
+.mep-popup input.new-manifest:focus,
+.mep-popup select.mep-manifest-variants:focus {
+  border: 0;
+}
+
+.mep-popup:not(.in-page) .promo-schedule-info,
+.mep-popup:not(.in-page) .mep-popup-header,
+.mep-popup:not(.in-page) [title="Mep Manifest Manager"] {
+  display: none;
+}
+
+/* In Page */
+.mep-popup.in-page {
+  position: absolute;
+  bottom: 64px;
+  left: -8px;
+  background-color: #444;
+  min-width: 300px;
+  border-radius: 16px;
+  box-shadow: 0 0 10px #000;
+}
+
+.mep-popup.in-page .mep-popup-body {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: calc(100vh - 234px);
+}
+
+.mep-popup.in-page .mep-manifest-list {
+  flex-wrap: initial;
+  flex-direction: column;
+}
+
+.mep-popup.in-page .mep-section {
+  flex: 1 1 auto;
+}
+
+.mep-popup.in-page::before {
+  content: '';
+  width: 0;
+  height: 0;
+  position: absolute;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 15px solid #444;
+  bottom: -15px;
+  left: 30px;
+}
+
+.mep-popup.in-page .mep-popup-header {
+  background-color: #222;
+}
+.mep-popup.in-page .mep-divider {
+  border-bottom: 1px solid #fff;
+}
+
+
+/* Media Queries */
+@media screen and (max-width: 599px) {
+  .mep-hidden .mep-badge .mep-open {
+    margin-right: 0;
+  }
+
+  .mep-hidden .mep-badge .mep-manifest-count {
+    display: none;
+  }
+}
+
+
+/* scrollbar */
+.mep-popup-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.mep-popup-body::-webkit-scrollbar-track {
+  background: #888;
+}
+
+.mep-popup-body::-webkit-scrollbar-thumb {
+  background: #f1f1f1;
+}
+
+.mep-popup-body::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* mepHighlight */
+body[data-mep-highlight='true'] [data-manifest-id]:not(section.feds-navItem),
+body[data-mep-highlight='true'] section.feds-navItem[data-manifest-id] > *,
+body[data-mep-highlight='true'] [data-code-manifest-id],
+body[data-mep-highlight='true'] [data-removed-manifest-id] {
+  outline: 3px #26ceef dashed !important;
+  box-shadow: 3px 3px 13px 0 #8f8f8f !important;
+}
+
+body[data-mep-highlight='true'] [data-code-manifest-id] {
+  outline: 3px #6626ef dashed !important;
+}
+
+body[data-mep-highlight='true'] [data-removed-manifest-id] {
+  outline: 3px #ef3726 dashed !important;
+}
+
+body:not([data-mep-highlight='true']) [data-removed-manifest-id] {
+  display: none !important;
+}
+
+body[data-mep-highlight='true'] [data-manifest-id]::before,
+body[data-mep-highlight='true'] [data-code-manifest-id]::before,
+body[data-mep-highlight='true'] [data-removed-manifest-id]::before {
+  content: 'content updated by: ' attr(data-manifest-id);
+  font-size: 14px !important;
+  min-height: 20px !important;
+  min-width: 60px !important;
+  text-align: center !important;
+  vertical-align: top;
+  position: absolute !important;
+  left: 5px;
+  z-index: 100;
+  padding: 5px 10px !important;
+  margin: 2px;
+  background-color: #ddebf7 !important;
+  color: #000 !important;
+  opacity: 0.7 !important;
+  border: 1px solid #1ad8ff;
+  border-radius: 5px;
+  box-shadow: 0 3px 8px 1px #808080;
+}
+
+body[data-mep-highlight='true'] [data-code-manifest-id]::before {
+  content: 'code updated by: ' attr(data-code-manifest-id);
+  background-color: #d2cbff !important;
+  border: 1px solid #6626ef;
+  left: unset;
+  right: 5px;
+}
+
+body[data-mep-highlight='true'] [data-removed-manifest-id]::before {
+  content: 'content was removed by: ' attr(data-removed-manifest-id);
+  background-color: #ffe0e4 !important;
+  border: 1px solid #ef3726;
+}
+
+body[data-mep-highlight='true'] main[data-manifest-id]::before {
+  content: 'page replaced by: ' attr(data-manifest-id);
+}
+
+body[data-mep-highlight='true'] .section[class*="-merch-cards"] .fragment[data-manifest-id]::before {
+  display: none;
+}
