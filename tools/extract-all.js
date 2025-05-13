@@ -20,3 +20,5 @@ export async function extractAllComponents() {
   fs.writeFileSync(path.join(outputDir, 'loader.js'), hydratedFiles);
   fs.writeFileSync(path.join(outputDir, 'code.json'), JSON.stringify(blocks));
 }
+
+extractAllComponents();
