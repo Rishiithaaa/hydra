@@ -76,13 +76,10 @@ function convertHydrateString(inputStr) {
 export function extractHandlers(outputPath, config, blocks) {
     const {entry} = config;
     const code = fs.readFileSync(entry, 'utf-8');
-    const hydrate = fs.readFileSync('output.json', 'utf-8');
     const hydrationRuntime = fs.readFileSync('tools/hydration-runtime.js', 'utf-8');
     const ast = parser.parse(code, { sourceType: 'module', ranges: true });
     const parts = entry.split('/'); // Split by "/"
     const lastTwoParts = parts.slice(-2).join('/');
-    const data = JSON.parse(hydrate);
-    const hydrator = data.filter(obj => obj.file === lastTwoParts);
   
     const dependencies = new Set();
     const componentHandlers = new Set();
