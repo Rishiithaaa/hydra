@@ -9,11 +9,14 @@ const faq = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: 
 const mediaCollection = {};
 
 function setSEO(questions) {
+  //@hydrate.0({payload: {questions, faq}})
   faq.mainEntity.push(questions.map(({ name, text }) => (
     { '@type': 'Question', name, acceptedAnswer: { text, '@type': 'Answer' } })));
   const script = createTag('script', { type: 'application/ld+json' }, JSON.stringify(faq));
   document.head.append(script);
+  //@end
 }
+
 
 /* c8 ignore next 8 */
 function playVideo(video) {
@@ -26,6 +29,7 @@ function playVideo(video) {
 }
 
 /* c8 ignore next 11 */
+//@hydrate.1({payload: {video, pauseBtn, isPlaying}})
 function pauseVideo(video) {
   if (!video) return;
   if (video.getAttribute('controls') !== null) {
@@ -37,21 +41,28 @@ function pauseVideo(video) {
   if (!isPlaying || video.readyState === 0) return;
   pauseBtn.click();
 }
+//@end
 
+//@hydrate.0({payload: {btn, panel}}) 
 function openPanel(btn, panel) {
-  const analyticsValue = btn.getAttribute('daa-ll');
-  btn.setAttribute('aria-expanded', 'true');
-  btn.setAttribute('daa-ll', analyticsValue.replace(/open-/, 'close-'));
-  panel.removeAttribute('hidden');
+  const analyticsValue = btn.getAttribute('daa-ll'); // Get the analytics value
+  btn.setAttribute('aria-expanded', 'true'); // Update aria-expanded for accessibility
+  btn.setAttribute('daa-ll', analyticsValue.replace(/open-/, 'close-')); // Change analytics state
+  panel.removeAttribute('hidden'); // Make the panel visible
 }
+//@end
 
+//@hydrate.1({payload: {btn, panel}}) 
 function closePanel(btn, panel) {
   const analyticsValue = btn.getAttribute('daa-ll');
   btn.setAttribute('aria-expanded', 'false');
   btn.setAttribute('daa-ll', analyticsValue.replace(/close-/, 'open-'));
   panel.setAttribute('hidden', '');
 }
+//@end
 
+
+//@hydrate.2({payload: {displayArea, el, dd, clickedId}}) 
 function closeMediaPanel(displayArea, el, dd, clickedId) {
   closePanel(el, dd);
   const clickedMedia = displayArea.childNodes[clickedId - 1];
@@ -63,51 +74,68 @@ function closeMediaPanel(displayArea, el, dd, clickedId) {
   const newExpandedId = otherExpandedPanels[0].id.split('trigger-')[1] - 1;
   displayArea.childNodes[newExpandedId].classList.add('expanded');
 }
+//@end
+
 
 function openMediaPanel(displayArea, el, dd, clickedId) {
   const accordionId = el.getAttribute('aria-controls').split('-')[1];
   [...mediaCollection[accordionId]].forEach((mediaCollectionItem, idx) => {
     const video = mediaCollectionItem.querySelector('video');
     if (idx === clickedId - 1) {
+      //@hydrate.3({payload: {el, dd, idx}})
       openPanel(el, dd);
       displayArea?.childNodes[idx]?.classList.add('expanded');
       if (video) playVideo(video);
+      //@end
+
       return;
     }
+    //@hydrate.3({payload: {trigger, content, idx}})
     mediaCollectionItem.classList.remove('expanded');
     const trigger = document.querySelector(`#accordion-${accordionId}-trigger-${idx + 1}`);
     const content = document.querySelector(`#accordion-${accordionId}-content-${idx + 1}`);
     closePanel(trigger, content);
     if (video) pauseVideo(video);
+    //@end
   });
 }
 
 function handleClick(el, dd, num) {
   const expandAllBtns = el.closest('.accordion-container')?.querySelectorAll('.accordion-expand-all button');
   if (expandAllBtns.length) {
-    expandAllBtns.forEach((btn) => {
-      btn.setAttribute('aria-pressed', 'mixed');
-      btn.classList.remove('fill');
-      btn.disabled = false;
-    });
+  //@hydrate.4({payload: {el, num}})
+  expandAllBtns.forEach((btn) => {
+    btn.setAttribute('aria-pressed', 'mixed');
+    btn.classList.remove('fill');
+    btn.disabled = false;
+  });
+  //@end
   }
 
   const closestEditorial = el.closest('.editorial');
   const expanded = el.getAttribute('aria-expanded') === 'true';
   if (closestEditorial) {
-    if (expanded) {
-      closeMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
-      return;
-    }
-    openMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
-    return;
-  }
-
   if (expanded) {
-    closePanel(el, dd);
+    //@hydrate.4({payload: {el, dd, num}})
+    closeMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
+    //@end
     return;
   }
+  //@hydrate.4({payload: {el, dd, num}})
+  openMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
+  //@end
+  return;
+}
+
+   if (expanded) {
+    //@hydrate.4({payload: {el, dd}})
+    closePanel(el, dd);
+    //@end
+    return;
+  }
+  //@hydrate.4({payload: {el, dd}})
   openPanel(el, dd);
+  //@end
 }
 
 function defaultOpen(accordion) {
@@ -205,8 +233,11 @@ async function createExpandAllContainer(accordionItems, isEditorial, mediaEl) {
     if (video) pauseVideo(video);
   };
 
-  expandBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'expand'));
-  collapseBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'collapse'));
+//@hydrate.0({ payload: { expandBtn, collapseBtn } })
+expandBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'expand'));
+collapseBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'collapse'));
+//@end
+
   return container;
 }
 
@@ -256,10 +287,8 @@ export default async function init(el) {
   }
 
   let counter = 100;
-  //@hydrate.2({payload:counter})
   for(let i = 0; i<4; i++) {
     console.log(i, counter);
     counter++;
   }
-  //@end
 }

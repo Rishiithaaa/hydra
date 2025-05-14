@@ -54,6 +54,7 @@ import { getMiloLocaleSettings } from '../merch/merch.js';
 
 const SIGNIN_CONTEXT = getConfig()?.signInContext;
 
+//@hydrate.0({ reason: "getHelpChildren depends on runtime config data" })
 function getHelpChildren() {
   const { unav } = getConfig();
   return unav?.unavHelpChildren || [
@@ -61,7 +62,9 @@ function getHelpChildren() {
     { type: 'Community' },
   ];
 }
+//@end
 
+//@hydrate.1({ reason: "Returns a dynamic event listener using config or default" })
 const getMessageEventListener = () => {
   const configListener = getConfig().unav?.profile?.messageEventListener;
   if (configListener) return configListener;
@@ -88,9 +91,11 @@ const getMessageEventListener = () => {
     }
   };
 };
+//@end
 
+//@hydrate.2({ reason: "CONFIG contains runtime conditional icons and listener callbacks" })
 export const CONFIG = {
-  icons: isDarkMode() ? darkIcons : icons,
+  icons: isDarkMode() ? darkIcons : icons, // Dynamic based on theme
   delays: {
     mainNavDropdowns: 800,
     loadDelayed: 3000,
@@ -110,7 +115,7 @@ export const CONFIG = {
         name: 'profile',
         attributes: {
           isSignUpRequired: false,
-          messageEventListener: getMessageEventListener(),
+          messageEventListener: getMessageEventListener(), // dynamically injected listener
           componentLoaderConfig: {
             config: {
               enableLocalSection: true,
@@ -124,7 +129,7 @@ export const CONFIG = {
                   error: (e) => lanaLog({ message: 'Profile Menu error', e, tags: 'universalnav', errorType: 'error' }),
                 },
               },
-              ...getConfig().unav?.profile?.config,
+              ...getConfig().unav?.profile?.config, // Merged dynamic config
             },
           },
           complexConfig: getConfig().unav?.profile?.complexConfig || null,
@@ -148,7 +153,7 @@ export const CONFIG = {
       },
       help: {
         name: 'help',
-        attributes: { children: getHelpChildren() },
+        attributes: { children: getHelpChildren() }, // Dynamic children from runtime config
       },
       jarvis: {
         name: 'jarvis',
@@ -161,7 +166,9 @@ export const CONFIG = {
     },
   },
 };
+//@end
 
+// These mappings are constants, no dynamic behavior
 export const osMap = {
   Mac: 'macOS',
   Win: 'windows',
@@ -189,15 +196,19 @@ export const LANGMAP = {
   zh: ['cn', 'tw'],
 };
 
-// signIn, decorateSignIn and decorateProfileTrigger can be removed if IMS takes over the profile
+//@hydrate.0({ payload: { signIn, decorateSignIn, decorateProfileTrigger } })
+// signIn method to handle sign-in flow dynamically when adobeIMS is available
 const signIn = (options = {}) => {
   if (typeof window.adobeIMS?.signIn !== 'function') {
     lanaLog({ message: 'IMS signIn method not available', tags: 'gnav', errorType: 'warn' });
     return;
   }
-  window.adobeIMS.signIn(options);
+  window.adobeIMS.signIn(options); // Hydrated dynamically based on IMS configuration and user flow
 };
+//@end
 
+//@hydrate.1({ payload: { signInElem, dropdownElem, decoratedElem } })
+// decorateSignIn to handle the dynamic creation of sign-in button or dropdown
 const decorateSignIn = async ({ rawElem, decoratedElem }) => {
   const dropdownElem = rawElem.querySelector(':scope > div:nth-child(2)');
   const signInLabel = await replaceKey('sign-in', getFedsPlaceholderConfig());
@@ -205,20 +216,17 @@ const decorateSignIn = async ({ rawElem, decoratedElem }) => {
 
   if (!dropdownElem) {
     signInElem = toFragment`<button daa-ll="${signInLabel}" class="feds-signIn">${signInLabel}</button>`;
-
     signInElem.addEventListener('click', (e) => {
       e.preventDefault();
       signIn(SIGNIN_CONTEXT);
     });
   } else {
     signInElem = toFragment`<button daa-ll="${signInLabel}" class="feds-signIn" aria-expanded="false" aria-haspopup="true">${signInLabel}</button>`;
-
     signInElem.addEventListener('click', (e) => trigger({ element: signInElem, event: e }));
     signInElem.addEventListener('keydown', (e) => e.code === 'Escape' && closeAllDropdowns());
     dropdownElem.addEventListener('keydown', (e) => e.code === 'Escape' && closeAllDropdowns());
 
     dropdownElem.classList.add('feds-signIn-dropdown');
-
     const dropdownSignInAnchor = dropdownElem.querySelector('[href$="?sign-in=true"]');
     if (dropdownSignInAnchor) {
       const dropdownSignInButton = toFragment`<button class="feds-signIn">${dropdownSignInAnchor.textContent}</button>`;
@@ -236,7 +244,10 @@ const decorateSignIn = async ({ rawElem, decoratedElem }) => {
 
   decoratedElem.prepend(signInElem);
 };
+//@end
 
+//@hydrate.2({ payload: { buttonElem } })
+// decorateProfileTrigger dynamically generates the profile button with runtime values
 const decorateProfileTrigger = async ({ avatar }) => {
   const [label, profileAvatar] = await replaceKeyArray(
     ['profile-button', 'profile-avatar'],
@@ -259,6 +270,7 @@ const decorateProfileTrigger = async ({ avatar }) => {
 
   return buttonElem;
 };
+//@end
 
 let keyboardNav;
 const setupKeyboardNav = async (newMobileWithLnav) => {

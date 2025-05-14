@@ -1,1 +1,0 @@
-import './accordion-hydrate.js';
