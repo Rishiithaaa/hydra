@@ -9,13 +9,11 @@ const faq = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: 
 const mediaCollection = {};
 
 function setSEO(questions) {
-
   faq.mainEntity.push(questions.map(({ name, text }) => (
     { '@type': 'Question', name, acceptedAnswer: { text, '@type': 'Answer' } })));
   const script = createTag('script', { type: 'application/ld+json' }, JSON.stringify(faq));
   document.head.append(script);
 }
-
 
 /* c8 ignore next 8 */
 function playVideo(video) {
@@ -39,11 +37,12 @@ function pauseVideo(video) {
   if (!isPlaying || video.readyState === 0) return;
   pauseBtn.click();
 }
+
 function openPanel(btn, panel) {
-  const analyticsValue = btn.getAttribute('daa-ll'); // Get the analytics value
-  btn.setAttribute('aria-expanded', 'true'); // Update aria-expanded for accessibility
-  btn.setAttribute('daa-ll', analyticsValue.replace(/open-/, 'close-')); // Change analytics state
-  panel.removeAttribute('hidden'); // Make the panel visible
+  const analyticsValue = btn.getAttribute('daa-ll');
+  btn.setAttribute('aria-expanded', 'true');
+  btn.setAttribute('daa-ll', analyticsValue.replace(/open-/, 'close-'));
+  panel.removeAttribute('hidden');
 }
 
 function closePanel(btn, panel) {
@@ -52,6 +51,7 @@ function closePanel(btn, panel) {
   btn.setAttribute('daa-ll', analyticsValue.replace(/close-/, 'open-'));
   panel.setAttribute('hidden', '');
 }
+
 function closeMediaPanel(displayArea, el, dd, clickedId) {
   closePanel(el, dd);
   const clickedMedia = displayArea.childNodes[clickedId - 1];
@@ -85,25 +85,25 @@ function openMediaPanel(displayArea, el, dd, clickedId) {
 function handleClick(el, dd, num) {
   const expandAllBtns = el.closest('.accordion-container')?.querySelectorAll('.accordion-expand-all button');
   if (expandAllBtns.length) {
-  expandAllBtns.forEach((btn) => {
-    btn.setAttribute('aria-pressed', 'mixed');
-    btn.classList.remove('fill');
-    btn.disabled = false;
-  });
+    expandAllBtns.forEach((btn) => {
+      btn.setAttribute('aria-pressed', 'mixed');
+      btn.classList.remove('fill');
+      btn.disabled = false;
+    });
   }
 
   const closestEditorial = el.closest('.editorial');
   const expanded = el.getAttribute('aria-expanded') === 'true';
   if (closestEditorial) {
-  if (expanded) {
-
-    closeMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
+    if (expanded) {
+      closeMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
+      return;
+    }
+    openMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
     return;
   }
-  openMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
-  return;
-}
-   if (expanded) {
+
+  if (expanded) {
     closePanel(el, dd);
     return;
   }
@@ -148,7 +148,9 @@ function createItem(accordion, id, heading, num, edit) {
     dd.prepend(dm);
   }
 
+  //@hydrate({payload:{button, dd, num, id}})
   button.addEventListener('click', (e) => { handleClick(e.target, dd, num, id); });
+  //@end
   accordion.append(dt, dd);
 
   return { name: heading.textContent, text, dt, dd };
@@ -203,23 +205,22 @@ async function createExpandAllContainer(accordionItems, isEditorial, mediaEl) {
     if (video) pauseVideo(video);
   };
 
-//@hydrate.0({ payload: { expandBtn, collapseBtn } })
-expandBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'expand'));
-collapseBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'collapse'));
-//@end
-
+  expandBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'expand'));
+  collapseBtn.addEventListener('click', ({ currentTarget }) => toggleAll(currentTarget, 'collapse'));
+  //@end
   return container;
-}
 
+}
 export default async function init(el) {
+//@hydrate.0({payload:{el}})
   const id = getUniqueId(el);
+  //@end
   const accordion = createTag('div', { class: 'descr-list accordion', id: `accordion-${id}`, role: 'presentation' });
   const accordionMedia = createTag('div', { class: 'accordion-media', id: `accordion-media-${id}` });
   const isSeo = el.classList.contains('seo');
   const isEditorial = el.classList.contains('editorial');
   const hasExpandAll = el.classList.contains('expand-all-button');
-  decorateButtons(el);
-
+ 
   if (isEditorial) {
     const editorialMedia = el.querySelectorAll(':scope > div:nth-child(3n)');
     [...editorialMedia].map(
@@ -252,13 +253,16 @@ export default async function init(el) {
     defaultOpen(el);
   }
   if (hasExpandAll) {
+
     const expandAllContainer = await createExpandAllContainer(items, isEditorial, accordionMedia);
     el.prepend(expandAllContainer);
   }
 
+//@hydrate({payload:{counter}})
   let counter = 100;
   for(let i = 0; i<4; i++) {
     console.log(i, counter);
     counter++;
   }
+//@end
 }

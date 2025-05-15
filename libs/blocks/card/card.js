@@ -33,6 +33,7 @@ const addInner = (el, cardType, card) => {
     el.querySelector(':scope > div:not([class])')?.remove();
   }
 
+
   inner.classList.add(`consonant-${cardType}-inner`);
   card.append(inner);
 
@@ -48,7 +49,6 @@ const addInner = (el, cardType, card) => {
   title?.classList.add(`consonant-${cardType}-title`);
   text?.classList.add(`consonant-${cardType}-text`);
 };
-
 const init = (el) => {
   const { miloLibs, codeRoot } = getConfig();
   const base = miloLibs || codeRoot;
