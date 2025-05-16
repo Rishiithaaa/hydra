@@ -1,298 +1,235 @@
-const mediaCollection = {};
-/* c8 ignore next 8 */
-function playVideo(video) {
-  if (!video) return;
-  if (video.getAttribute('autoplay') === null) return;
-  const playBtn = video.nextElementSibling;
-  const isPlaying = playBtn.getAttribute('aria-pressed') === 'true';
-  if (isPlaying || video.readyState === 0) return;
-  playBtn.click();
-}
+// build/extract-utils.js
+import * as parser from '@babel/parser';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as t from '@babel/types';
+import traverseDefault from '@babel/traverse';
+import generatorDefault from '@babel/generator';
+import jsBeautify from 'js-beautify';
 
-/* c8 ignore next 11 */
-function pauseVideo(video) {
-  if (!video) return;
-  if (video.getAttribute('controls') !== null) {
-    video.pause();
-    return;
-  }
-  const pauseBtn = video.nextElementSibling;
-  const isPlaying = pauseBtn?.getAttribute('aria-pressed') === 'true';
-  if (!isPlaying || video.readyState === 0) return;
-  pauseBtn.click();
-}
+const traverse = traverseDefault.default || traverseDefault;
+const generator = generatorDefault.default || generatorDefault;
+const beautify = jsBeautify.js;
 
-function openPanel(btn, panel) {
-  const analyticsValue = btn.getAttribute('daa-ll');
-  btn.setAttribute('aria-expanded', 'true');
-  btn.setAttribute('daa-ll', analyticsValue.replace(/open-/, 'close-'));
-  panel.removeAttribute('hidden');
-}
-
-function closePanel(btn, panel) {
-  const analyticsValue = btn.getAttribute('daa-ll');
-  btn.setAttribute('aria-expanded', 'false');
-  btn.setAttribute('daa-ll', analyticsValue.replace(/close-/, 'open-'));
-  panel.setAttribute('hidden', '');
-}
-
-function closeMediaPanel(displayArea, el, dd, clickedId) {
-  closePanel(el, dd);
-  const clickedMedia = displayArea.childNodes[clickedId - 1];
-  const video = clickedMedia?.querySelector('video');
-  if (video) pauseVideo(video);
-  const otherExpandedPanels = el.closest('.accordion').querySelectorAll('.accordion-trigger[aria-expanded="true"]');
-  if (!otherExpandedPanels.length) return;
-  clickedMedia.classList.remove('expanded');
-  const newExpandedId = otherExpandedPanels[0].id.split('trigger-')[1] - 1;
-  displayArea.childNodes[newExpandedId].classList.add('expanded');
-}
-
-function openMediaPanel(displayArea, el, dd, clickedId) {
-  const accordionId = el.getAttribute('aria-controls').split('-')[1];
-  [...mediaCollection[accordionId]].forEach((mediaCollectionItem, idx) => {
-    const video = mediaCollectionItem.querySelector('video');
-    if (idx === clickedId - 1) {
-      openPanel(el, dd);
-      displayArea?.childNodes[idx]?.classList.add('expanded');
-      if (video) playVideo(video);
-      return;
-    }
-    mediaCollectionItem.classList.remove('expanded');
-    const trigger = document.querySelector(`#accordion-${accordionId}-trigger-${idx + 1}`);
-    const content = document.querySelector(`#accordion-${accordionId}-content-${idx + 1}`);
-    closePanel(trigger, content);
-    if (video) pauseVideo(video);
-  });
-}
-
-function handleClick(el, dd, num) {
-  const expandAllBtns = el.closest('.accordion-container')?.querySelectorAll('.accordion-expand-all button');
-  if (expandAllBtns.length) {
-    expandAllBtns.forEach(btn => {
-      btn.setAttribute('aria-pressed', 'mixed');
-      btn.classList.remove('fill');
-      btn.disabled = false;
-    });
-  }
-  const closestEditorial = el.closest('.editorial');
-  const expanded = el.getAttribute('aria-expanded') === 'true';
-  if (closestEditorial) {
-    if (expanded) {
-      closeMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
-      return;
-    }
-    openMediaPanel(closestEditorial.querySelector('.accordion-media'), el, dd, num);
-    return;
-  }
-  if (expanded) {
-    closePanel(el, dd);
-    return;
-  }
-  openPanel(el, dd);
-}
-
-function getUniqueId(el) {
-  const accordions = document.querySelectorAll('.accordion');
-  return [...accordions].indexOf(el) + 1;
-}
-const hydrationToken = "accordion/accordion.js";
-const hydrationBlocks = {
-  _152: ({
-    button,
-    dd,
-    num,
-    id
-  }) => {
-    button.addEventListener('click', e => {
-      handleClick(e.target, dd, num, id);
-    });
-  },
-  _216: () => {
-    const id = getUniqueId(el);
-  },
-  _262: ({
-    counter
-  }) => {
-    let counter = 100;
-  }
-}
-/**
- * Dynamic Hydration Runtime Code
- * This module provides runtime functionality for hydrating components on the client side.
- */
+const HYDRATION_MARKER = '//@hydrate';
 
 /**
- * Performs client-side hydration dynamically at runtime using only 'id'.
- * Processes raw hydration data collected during SSR, finds corresponding
- * code block definition using 'id', resolves elements, and executes the code.
- * Replaces build-time generation of individual init_X functions.
- *
- * @param {Array<object>} rawHydratorData Raw hydration data array from SSR.
- * Example element: {id: 0, elements: {param1: "sh-id"}, data: {param3: "value"}}
- * @param {Array<object>} blockDefinitions Array defining hydration code blocks.
- * Example element: {id: 0, code: "console.log(param1);"}
- * 'id' must uniquely identify a code block in this version.
+ * Scans a directory recursively for files containing the hydration marker
+ * @param {string} dir - Directory to scan
+ * @returns {Array} Array of file paths that contain the hydration marker
  */
-export function hydrateDynamically(rawHydratorData, blockDefinitions = []) {
-  // 1. Validate Inputs
-  if (!Array.isArray(rawHydratorData)) {
-    console.error("Dynamic Hydration (ID Only) failed: rawHydratorData must be an array.", rawHydratorData);
-    return;
-  }
-  if (!Array.isArray(blockDefinitions)) {
-    console.error("Dynamic Hydration (ID Only) failed: blockDefinitions must be an array.", blockDefinitions);
-    return;
-  }
-  if (rawHydratorData.length === 0) {
-    console.log("No raw hydration data found.");
-    return;
-  }
-  if (blockDefinitions.length === 0) {
-    console.log("No hydration block definitions found.");
-    // return;
-  }
+export function scanForHydratedFiles(dir) {
+    const hydratedFiles = [];
+    
+    function scanDirectory(currentDir) {
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
 
-  console.log(`Starting dynamic hydration (ID Only). Found ${rawHydratorData.length} raw tasks and ${blockDefinitions.length} block definitions.`);
+        for (const entry of entries) {
+            const fullPath = path.join(currentDir, entry.name);
+            
+            if (entry.isDirectory()) {
+                scanDirectory(fullPath);
+            } else if (entry.isFile() && entry.name.endsWith('.js')) {
+                const content = fs.readFileSync(fullPath, 'utf8');
+                if (content.includes(HYDRATION_MARKER)) {
+                    hydratedFiles.push(fullPath);
+                }
+            }
+        }
+    }
 
-  // Create a map from blockDefinitions using only ID for faster lookups
-  const blockMap = new Map();
-  blockDefinitions.forEach(def => {
-    // Check if definition has required fields (id and code)
-    if (def && def.id !== undefined && typeof def.code === 'string') {
-      const blockId = def.id; // Use ID as the key
-      if (blockMap.has(blockId)) {
-        // Warn about duplicates but allow last one to win
-        console.warn(`Duplicate block definition found for id: ${blockId}. Last definition will be used.`);
-      }
-      blockMap.set(blockId, def.code);
+    scanDirectory(dir);
+    return hydratedFiles;
+}
+
+function convertHydrateString(inputStr) {
+    // Regular Expression Breakdown:
+    // ^                   - Start of the string anchor
+    // @hydrate\.         - Matches the literal "@hydrate." (dot needs escaping)
+    // \d+               - Matches one or more digits (the number N)
+    // \({payload:       - Matches the literal "({payload:" (parentheses and brace need escaping)
+    // \{                - Matches the opening curly brace of the payload content (needs escaping)
+    // (.*?)             - Captures any character (.), zero or more times (*), non-greedily (?)
+    //                     This is group 1, the content we want to extract (e.g., "button, dd, num, id")
+    // \}                - Matches the closing curly brace of the payload content (needs escaping)
+    // \}\)              - Matches the literal "})" (brace and parenthesis need escaping)
+    // $                   - End of the string anchor
+    const regex = /^@hydrate\({payload:\{(.*?)\}\}\)$/;
+  
+    // Attempt to match the regex against the input string
+    const match = inputStr.match(regex);
+    // Check if a match was found
+    if (match && match[1] !== undefined) {
+      // match[0] is the full matched string
+      // match[1] is the content captured by the first capturing group (.*?)
+      const extractedContent = match[1];
+      // Return the extracted content enclosed in curly braces
+      return `{${extractedContent}}`;
     } else {
-      console.warn("Invalid block definition encountered during map creation (missing id or code):", def);
+      // Return null if the pattern doesn't match
+      return '';
     }
-  });
+  }
 
-  //   if (blockMap.size === 0) {
-  //     console.error("No valid block definitions were processed into the lookup map. Cannot proceed.");
-  //     return;
-  //   }
-
-  // 2. Process each raw hydration task instance from SSR
-  rawHydratorData.forEach((rawTask, taskIndex) => {
-    // Validate raw task structure needed for processing (only need id)
-    if (!rawTask || typeof rawTask !== 'object' || rawTask.id === undefined) {
-      console.warn(`Skipping invalid raw hydration task at index ${taskIndex} (missing id):`, rawTask);
-      return;
-    }
-
-    // Find the corresponding code string using only the ID
-    const blockId = rawTask.id;
-    const blockCodeString = blockMap.get(blockId);
-
-    // Skip if no code found for this task's block definition ID
-    // if (blockCodeString === undefined) {
-    //   console.warn(`No code definition found for block id "${blockId}" (Task index ${taskIndex}). Skipping task.`);
-    //   return;
-    // }
-
-    try {
-      const resolvedArgs = {}; // Holds resolved elements and data for this instance
-
-      // 3. Resolve DOM Elements for this task instance
-      const rawElements = rawTask.elements || {};
-      for (const key in rawElements) {
-        const idOrIds = rawElements[key];
-        let selector = null;
-        let isMultiple = false;
-
-        if (Array.isArray(idOrIds)) {
-          if (idOrIds.length > 0) {
-            selector = idOrIds
-              .map(mId => typeof mId === 'string' ? `[data-hydrate-multi="${mId}"]` : null)
-              .filter(s => s !== null)
-              .join(',');
-            isMultiple = true;
-            if (!selector) {
-              console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): No valid multi-IDs found in array:`, idOrIds);
-              resolvedArgs[key] = document.querySelectorAll(`.non-existent-class-${Date.now()}`);
-              continue;
-            }
-          } else {
-            console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): Empty array provided for multi-element IDs.`);
-            resolvedArgs[key] = document.querySelectorAll(`.non-existent-class-${Date.now()}`);
-            continue;
-          }
-        } else if (typeof idOrIds === 'string' && idOrIds.startsWith('sh-')) {
-          selector = `[data-hydrate-id="${idOrIds}"]`;
-          isMultiple = false;
-        } else {
-          console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): Invalid element ID format found:`, idOrIds);
-          resolvedArgs[key] = null;
-          continue;
+export function extractHandlers(outputPath, config, blocks) {
+    const {entry} = config;
+    const code = fs.readFileSync(entry, 'utf-8');
+    const hydrationRuntime = fs.readFileSync('tools/hydration-runtime.js', 'utf-8');
+    const ast = parser.parse(code, { sourceType: 'module', ranges: true });
+    const parts = entry.split('/'); // Split by "/"
+    const lastTwoParts = parts.slice(-2).join('/');
+  
+    const dependencies = new Set();
+    const componentHandlers = new Set();
+    const importNodes = new Set(); 
+    const hydrationCode = [];
+    const extractedNodes = new Set();
+    const processedDependencies = new Set();
+    const globalVariables = new Set();
+    const hydrateBlocks = [];
+  
+    // AST Analysis
+    traverse(ast, {
+      enter(path) {
+        const comments = path.node.leadingComments || [];
+        const hydrateComment = comments.find(c => 
+          c.value.trim().startsWith('@hydrate')
+        );
+  
+        if (hydrateComment) {
+          // console.log('++++++', hydrateComment);
+          const lineNumber = path.node.loc?.start?.line || 0;
+          const a = convertHydrateString(hydrateComment.value);
+          
+          hydrateBlocks.push({
+            code: `(${a}) => {${generator(path.node, { comments: false }).code}}`,
+            id: lineNumber
+          });
+          path.traverse({
+            Identifier(innerPath) {
+                dependencies.add(innerPath.node.name);
+            },
+        });
         }
-
-        if (selector) {
-          const elementsNodeList = document.querySelectorAll(selector);
-          if (isMultiple) {
-            resolvedArgs[key] = elementsNodeList;
-            if (elementsNodeList.length === 0) {
-              console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): No elements found for selector '${selector}'`);
-            }
-          } else {
-            resolvedArgs[key] = elementsNodeList[0] || null;
-            if (!resolvedArgs[key]) {
-              console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): No element found for selector '${selector}'`);
-            }
-          }
-        } else {
-          resolvedArgs[key] = isMultiple ? document.querySelectorAll(`.non-existent-class-${Date.now()}`) : null;
+      },
+      VariableDeclarator(path) {
+        if (path.parentPath.parentPath.isProgram()) {
+          globalVariables.add(path.node.id.name);
         }
       }
-
-      // 4. Merge Static Data for this task instance
-      const rawData = rawTask.data || {};
-      for (const key in rawData) {
-        if (resolvedArgs.hasOwnProperty(key)) {
-          console.warn(`Dynamic Hydration (ID: ${blockId}, Task: ${taskIndex}, Key: ${key}): Data key clashes with element key. Data value will be used.`);
+    });
+  
+      let previousSize;
+      do {
+        previousSize = dependencies.size;
+        const currentDeps = Array.from(dependencies);
+  
+        currentDeps.forEach(depName => {
+          if (processedDependencies.has(depName)) return;
+          processedDependencies.add(depName);
+  
+          traverse(ast, {
+            FunctionDeclaration(path) {
+              if (path.node.id.name === depName) {
+                // Track dependencies within this function
+                path.traverse({
+                  Identifier(innerPath) {
+                    const name = innerPath.node.name;
+                    // if (!isBrowserAPI(name) && globalVariables.has(name)) {
+                    //   dependencies.add(name);
+                    // }
+                    if (!dependencies.has(innerPath.node.name)) {
+                      dependencies.add(innerPath.node.name);
+                    }
+                  }
+                });
+              }
+            },
+            VariableDeclarator(path) {
+              if (path.node.id.name === depName && 
+                  path.parentPath.parentPath.isProgram() &&
+                  (path.node.init.type === 'FunctionExpression' ||
+                  path.node.init.type === 'ArrowFunctionExpression')) {
+                // Track dependencies within function expressions
+                path.traverse({
+                  Identifier(innerPath) {
+                    if (!dependencies.has(innerPath.node.name)) {
+                      dependencies.add(innerPath.node.name);
+                    }
+                  }
+                });
+              }
+            }
+          });
+        });
+      } while (dependencies.size > previousSize);
+  
+    traverse(ast, {
+        ImportDeclaration(path) {
+            if (path.node.specifiers.some(spec => dependencies.has(spec.local.name))) {
+                importNodes.add(path.node);
+            }
+        },
+        FunctionDeclaration(path) {
+            if (dependencies.has(path.node.id.name)) {
+                extractedNodes.add(path.node);
+            }
+        },
+        VariableDeclaration(path) {
+          path.node.declarations.forEach(declaration => {
+              if (t.isIdentifier(declaration.id) && dependencies.has(declaration.id.name) &&  globalVariables.has(declaration.id.name)) {
+                  extractedNodes.add(path.node);
+              }
+          });
         }
-        resolvedArgs[key] = rawData[key];
-      }
+    });
+  
+    
+    blocks[lastTwoParts] = blocks[lastTwoParts] || [];
+    blocks[lastTwoParts].push(...hydrateBlocks);
+  
+    const sortedStatements = [
+        ...importNodes,
+        ...extractedNodes,
+    ].map(node => t.isExpression(node) ? t.expressionStatement(node) : node);
+    const extractedAST = t.program(sortedStatements);
+    const extractedCode = generator(extractedAST).code;
+    const fnsArr = hydrateBlocks.map((blk) => {
+        return `_${blk.id}: ${blk.code}` 
+    });
 
-      // 5. Prepare for Code Execution
-      const argNames = Object.keys(resolvedArgs);
-      const argValues = argNames.map(name => resolvedArgs[name]);
-      console.log(argNames);
-
-      hydrationBlocks[`block_${rawTask.id}`](resolvedArgs);
-
-      // 6. Execute the User's Hydration Code for this specific instance
-      // const hydrateAction = new Function(...argNames, blockCodeString);
-      // const hydrateAction = function (...argValues) { eval(blockCodeString) };
-      // hydrateAction(...argValues);
-
-    } catch (error) {
-      console.error(`Error during dynamic hydration execution (ID: ${blockId}, Task Index: ${taskIndex}):`, error, "Task details:", rawTask);
-    }
-  });
-
-  console.log("Dynamic hydration process finished (ID Only).");
-}
+    hydrationCode.push(`
+      ${extractedCode}
+      const hydrationToken = "${lastTwoParts}";
+      const hydrationBlocks = {${fnsArr.join(',')}}
+      ${hydrationRuntime}
+    `)
+    fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
+  }
 
 /**
- * Initializes dynamic hydration when the DOM is ready
+ * Process all hydrated files in a directory
+ * @param {string} sourceDir - Directory containing files to process
+ * @param {string} outputDir - Directory to output processed files
  */
-export function initializeDynamicHydration() {
-  // Assumes window.__HYDRATOR_DATA__ (raw SSR data array) and
-  // window.__BLOCK_DEFINITIONS__ (block definitions array) are populated globally
-  const token = hydrationToken;
-  const rawData = (window.hydrateData || []).filter(data => data.file === token);
-  const blockDefs = (window.code || [])[token];
+export function processHydratedFiles(sourceDir, outputDir, blocks) {
+    const hydratedFiles = scanForHydratedFiles(sourceDir);
+    console.log(`Found ${hydratedFiles.length} files with hydration markers`);
 
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
 
-  // Call the main hydration function
-  hydrateDynamically(rawData, blockDefs);
+    hydratedFiles.forEach(file => {
+        const relativePath = path.relative(sourceDir, file);
+        const outputPath = path.join(outputDir, `${path.basename(file, '.js')}-hydrate.js`);
+        
+        extractHandlers(outputPath, { entry: file }, blocks);
+        console.log(`Processed: ${relativePath}`);
+    });
 }
 
-// Run after DOM is ready
-if (typeof document !== 'undefined') {
-  initializeDynamicHydration();
-}
+
+ // -------- Dynamic Hydration Runtime Code (ID Only) --------
+     
