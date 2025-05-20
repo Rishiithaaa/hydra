@@ -1,7 +1,7 @@
 // build/extract-all.js
 import fs from 'fs';
 import path from 'path';
-import { processHydratedFiles } from './temp.js';
+import { processHydratedFiles } from './temp1.js';
 
 export async function extractAllComponents() {
   const sourceDir = './libs';
