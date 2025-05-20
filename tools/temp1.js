@@ -108,6 +108,20 @@ export function extractHandlers(outputPath, config, blocks) {
           }
         });
       }
+
+          // Remove hydrate-related comments after processing
+    if (path.node.leadingComments) {
+      path.node.leadingComments = path.node.leadingComments.filter(comment => {
+        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
+      });
+    }
+    if (path.node.trailingComments) {
+      path.node.trailingComments = path.node.trailingComments.filter(comment => {
+        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
+      });
+    }
+
+
     },
 
     VariableDeclarator(path) {
@@ -233,7 +247,7 @@ class ${newClassName} extends ${baseClassName} {
 ${methodBlocks}
 }
 ${methodDependencies}
-;`
+;`;
 
   hydrationCode.push(beautify(classCode, { indent_size: 2 }));
 } 
@@ -276,9 +290,11 @@ ${hydrationRuntime}
 `, { indent_size: 2 })
   );
 }
+const cleanedOutput = hydrationCode.join('\n')
+  .replace(/\/\/\s*@hydrate(\.class)?\([^)]*\)\n?/g, '')
+  .replace(/\/\/\s*@end\n?/g, '');
 
-fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
-
+fs.writeFileSync(outputPath, beautify(cleanedOutput, { indent_size: 2 }));
 }
 
 /**
@@ -304,5 +320,3 @@ export function processHydratedFiles(sourceDir, outputDir, blocks) {
         console.log(`Processed: ${relativePath}`);
     });
 }
-
- // -------- Dynamic Hydration Runtime Code (ID Only) --------

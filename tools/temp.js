@@ -108,6 +108,20 @@ export function extractHandlers(outputPath, config, blocks) {
           }
         });
       }
+
+          // Remove hydrate-related comments after processing
+    if (path.node.leadingComments) {
+      path.node.leadingComments = path.node.leadingComments.filter(comment => {
+        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
+      });
+    }
+    if (path.node.trailingComments) {
+      path.node.trailingComments = path.node.trailingComments.filter(comment => {
+        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
+      });
+    }
+
+
     },
 
     VariableDeclarator(path) {
@@ -203,12 +217,23 @@ export function extractHandlers(outputPath, config, blocks) {
       return !blk.code.includes('class ');
     })
     .map(blk => {
-      const match = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
-      if (!match) return '';
-      const args = match[1].trim();
-      const body = match[2].trim();
-      return `_${blk.id}({${args}}) {\n    ${body.replace(/\n/g, '\n    ')}\n  };`;
-    })
+  // Handle method declarations directly
+  const methodMatch = blk.code.match(/^function\s+(\w+)\((.*?)\)\s*\{([\s\S]*)\}$/);
+  if (methodMatch) {
+    const name = methodMatch[1];
+    const args = methodMatch[2];
+    const body = methodMatch[3];
+    return `${name}(${args}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+  }
+
+  // Fallback to arrow-function based hydration block
+  const match = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
+  if (!match) return '';
+  const args = match[1].trim();
+  const body = match[2].trim();
+  return `_${blk.id}({${args}}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+})
+
     .filter(Boolean)
     .join('\n\n');
 
@@ -245,7 +270,7 @@ if (nonClassHydrateBlocks.length > 0) {
   const fnsArr = nonClassHydrateBlocks.map(blk => `_${blk.id}: ${blk.code}`);
 
   const nonClassCode = `
-${generator(t.program([...importNodes, ...extractedNodes])).code}
+${generator(t.program([...importNodes, ...filteredExtractedNodes])).code}
 const hydrationToken = "${lastTwoParts}";
 const hydrationBlocks = {
   ${fnsArr.join(',\n  ')}
@@ -265,9 +290,11 @@ ${hydrationRuntime}
 `, { indent_size: 2 })
   );
 }
+const cleanedOutput = hydrationCode.join('\n')
+  .replace(/\/\/\s*@hydrate(\.class)?\([^)]*\)\n?/g, '')
+  .replace(/\/\/\s*@end\n?/g, '');
 
-fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
-
+fs.writeFileSync(outputPath, beautify(cleanedOutput, { indent_size: 2 }));
 }
 
 /**
@@ -293,5 +320,3 @@ export function processHydratedFiles(sourceDir, outputDir, blocks) {
         console.log(`Processed: ${relativePath}`);
     });
 }
-
- // -------- Dynamic Hydration Runtime Code (ID Only) --------

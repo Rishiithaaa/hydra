@@ -21,4 +21,4 @@ export async function extractAllComponents() {
   fs.writeFileSync(path.join(outputDir, 'code.json'), JSON.stringify(blocks));
 }
 
-extractAllComponents();
+extractAllComponents(); 
