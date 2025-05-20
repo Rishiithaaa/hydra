@@ -327,17 +327,19 @@ const removeLocalNav = () => {
   document.querySelector('.feds-localnav')?.remove();
 };
 
+
 export class Gnav {
   constructor({ content, block, newMobileNav } = {}) {
     this.content = content;
     this.block = block;
     this.customLinks = getConfig()?.customLinks?.split(',') || [];
-
+//@hydrate({payload:{}})
     this.blocks = {
       profile: {
         rawElem: this.content.querySelector('.profile'),
         decoratedElem: toFragment`<div data-cs-mask class="feds-profile"></div>`,
       },
+      //@end
       search: { config: { icon: CONFIG.icons.search } },
       breadcrumbs: { wrapper: '' },
     };
@@ -349,7 +351,7 @@ export class Gnav {
 
   // eslint-disable-next-line no-return-assign
   getOriginalTitle = (firstElem) => this.originalTitle ||= firstElem.textContent?.split('::');
-
+//@hydrate({payload:{}})
   setupUniversalNav = () => {
     const meta = getMetadata('universal-nav')?.toLowerCase();
     this.universalNavComponents = meta?.split(',').map((option) => option.trim())
@@ -363,7 +365,7 @@ export class Gnav {
       }, true);
     }
   };
-
+//@end
   init = () => logErrorFor(async () => {
     branchBannerLoadCheck(this.updatePopupPosition);
     this.elements.curtain = toFragment`<div class="feds-curtain"></div>`;
@@ -1400,7 +1402,6 @@ export class Gnav {
     return this.elements.search;
   };
 }
-
 export default async function init(block) {
   const { mep } = getConfig();
   const sourceUrl = await getGnavSource();

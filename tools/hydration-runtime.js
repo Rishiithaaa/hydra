@@ -143,7 +143,7 @@ export function hydrateDynamically(rawHydratorData, blockDefinitions=[]) {
       const argValues = argNames.map(name => resolvedArgs[name]);
       console.log(argNames);
 
-      hydrationBlocks[`block_${rawTask.id}`](resolvedArgs);
+      hydrationBlocks[`_${rawTask.id}`](resolvedArgs);
 
       // 6. Execute the User's Hydration Code for this specific instance
       // const hydrateAction = new Function(...argNames, blockCodeString);

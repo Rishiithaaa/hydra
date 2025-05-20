@@ -87,11 +87,26 @@ export function extractHandlers(outputPath, config, blocks) {
     const processedDependencies = new Set();
     const globalVariables = new Set();
     const hydrateBlocks = [];
-  
+    let baseClassName = null;
+    let newClassName = null;
+    let classStartLine = null;
     // AST Analysis
     traverse(ast, {
       enter(path) {
         const comments = path.node.leadingComments || [];
+        //Check for class hydration
+        const classComment = comments.find(c => c.value.trim().startsWith('@hydrate.class'));
+          if (classComment && path.isClassDeclaration()) {
+            const classHydrateRegex = /^@hydrate\.class\((\w+),\s*\{[\s\S]*?className:\s*["'](\w+)["']\s*\}\)/;
+            const match = classHydrateRegex.exec(classComment.value.trim());
+            if (match) {
+              baseClassName = match[1];
+              newClassName = match[2];
+              classStartLine = path.node.loc.start.line;
+            }
+          }
+
+        //regular hydrate block
         const hydrateComment = comments.find(c => 
           c.value.trim().startsWith('@hydrate')
         );
@@ -198,15 +213,24 @@ export function extractHandlers(outputPath, config, blocks) {
         return `_${blk.id}: ${blk.code}` 
     });
 
-    hydrationCode.push(`
-      ${extractedCode}
-      const hydrationToken = "${lastTwoParts}";
-      const hydrationBlocks = {${fnsArr.join(',')}}
-      ${hydrationRuntime}
-    `)
-    fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
-  }
+    let resultCode = '';
+if (baseClassName && newClassName) {
+  resultCode += `import ${baseClassName} from './${baseClassName}';\n`;
+  resultCode += `class ${newClassName} extends ${baseClassName} {\n`;
+  resultCode += hydrateBlocks.map(blk => blk.code).join('\n');
+  resultCode += '\n}';
+} else {
+  const extractedAST = t.program([
+    ...importNodes,
+    ...extractedNodes,
+  ]);
+  resultCode = generator(extractedAST).code;
+}
 
+hydrationCode.push(beautify(resultCode, { indent_size: 2 }));
+fs.writeFileSync(outputPath, beautify(hydrationCode.join('\n'), { indent_size: 2 }));
+
+}
 /**
  * Process all hydrated files in a directory
  * @param {string} sourceDir - Directory containing files to process
@@ -230,6 +254,4 @@ export function processHydratedFiles(sourceDir, outputDir, blocks) {
     });
 }
 
-
  // -------- Dynamic Hydration Runtime Code (ID Only) --------
-     
