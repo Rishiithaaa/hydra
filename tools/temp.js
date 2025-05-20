@@ -239,11 +239,21 @@ ${hydrationRuntime}
  * @param {object} blocks - Storage for block data
  */
 export function processHydratedFiles(sourceDir, outputDir, blocks) {
-  const hydratedFiles = scanForHydratedFiles(sourceDir);
-  hydratedFiles.forEach(file => {
-    const relativePath = path.relative(sourceDir, file);
-    const outputPath = path.join(outputDir, relativePath);
-    const config = { entry: file };
-    extractHandlers(outputPath, config, blocks);
-  });
+    const hydratedFiles = scanForHydratedFiles(sourceDir);
+    console.log(`Found ${hydratedFiles.length} files with hydration markers`);
+
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    hydratedFiles.forEach(file => {
+        const relativePath = path.relative(sourceDir, file);
+        const outputPath = path.join(outputDir, `${path.basename(file, '.js')}-hydrate.js`);
+        
+        extractHandlers(outputPath, { entry: file }, blocks);
+        console.log(`Processed: ${relativePath}`);
+    });
 }
+
+ // -------- Dynamic Hydration Runtime Code (ID Only) --------
