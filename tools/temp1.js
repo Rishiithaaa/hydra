@@ -69,67 +69,73 @@ export function extractHandlers(outputPath, config, blocks) {
   const globalVariables = new Set();
   const classHydrateBlocks = [];
   const nonClassHydrateBlocks = [];
+  const hydratedClasses = new Map(); // key = classStartLine, value = { baseClassName, newClassName, blocks: [] }
 
-  let baseClassName = null;
-  let newClassName = null;
-  let classStartLine = null;
+traverse(ast, {
+  enter(path) {
+    const comments = path.node.leadingComments || [];
 
-  traverse(ast, {
-    enter(path) {
-      const comments = path.node.leadingComments || [];
+    const classComment = comments.find(c => c.value.trim().startsWith('@hydrate.class'));
+    if (classComment && path.isClassDeclaration()) {
+      const classHydrateRegex = /^@hydrate\.class\((\w+),\s*\{[\s\S]*?className:\s*["'](\w+)["']\s*\}\)/;
+      const match = classHydrateRegex.exec(classComment.value.trim());
+      if (match) {
+        const baseClassName = match[1];
+        const newClassName = match[2];
+        const classStartLine = path.node.loc.start.line;
 
-      const classComment = comments.find(c => c.value.trim().startsWith('@hydrate.class'));
-      if (classComment && path.isClassDeclaration()) {
-        const classHydrateRegex = /^@hydrate\.class\((\w+),\s*\{[\s\S]*?className:\s*["'](\w+)["']\s*\}\)/;
-        const match = classHydrateRegex.exec(classComment.value.trim());
-        if (match) {
-          baseClassName = match[1];
-          newClassName = match[2];
-          classStartLine = path.node.loc.start.line;
-        }
-      }
-      const hydrateComment = comments.find(c => c.value.trim().startsWith('@hydrate'));
-      if (hydrateComment) {
-        const lineNumber = path.node.loc?.start?.line || 0;
-        const extractedPayload = convertHydrateString(hydrateComment.value);
-        const hydrateCode = `(${extractedPayload}) => {${generator(path.node, { comments: false }).code}}`;
-
-        const isInsideClass = !!path.findParent(p => p.isClassBody());
-
-        if (isInsideClass) {
-          classHydrateBlocks.push({ code: hydrateCode, id: lineNumber });
-        } else if (!path.isClassDeclaration()) {
-          nonClassHydrateBlocks.push({ code: hydrateCode, id: lineNumber });
-        }
-        
-        path.traverse({
-          Identifier(innerPath) {
-            dependencies.add(innerPath.node.name);
-          }
+        hydratedClasses.set(classStartLine, {
+          baseClassName,
+          newClassName,
+          blocks: [],
         });
       }
+    }
 
-          // Remove hydrate-related comments after processing
-    if (path.node.leadingComments) {
-      path.node.leadingComments = path.node.leadingComments.filter(comment => {
-        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
+    const hydrateComment = comments.find(c => c.value.trim().startsWith('@hydrate'));
+    if (hydrateComment) {
+      const lineNumber = path.node.loc?.start?.line || 0;
+      const extractedPayload = convertHydrateString(hydrateComment.value);
+      const hydrateCode = `(${extractedPayload}) => {${generator(path.node, { comments: false }).code}}`;
+
+      const parentClass = path.findParent(p => p.isClassBody());
+      if (parentClass) {
+        const classNode = parentClass.parentPath.node;
+        const classStartLine = classNode.loc.start.line;
+            if (hydratedClasses.has(classStartLine)) {
+      const blk = { code: hydrateCode, id: lineNumber };
+      hydratedClasses.get(classStartLine).blocks.push(blk);
+      classHydrateBlocks.push(blk); // <--- ADD THIS LINE
+    }
+
+      } else if (!path.isClassDeclaration()) {
+        nonClassHydrateBlocks.push({ code: hydrateCode, id: lineNumber });
+      }
+
+      path.traverse({
+        Identifier(innerPath) {
+          dependencies.add(innerPath.node.name);
+        }
       });
+    }
+
+    // Clean comments
+    if (path.node.leadingComments) {
+      path.node.leadingComments = path.node.leadingComments.filter(comment =>
+        !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end'
+      );
     }
     if (path.node.trailingComments) {
-      path.node.trailingComments = path.node.trailingComments.filter(comment => {
-        return !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end';
-      });
+      path.node.trailingComments = path.node.trailingComments.filter(comment =>
+        !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end'
+      );
     }
 
-
-    },
-
-    VariableDeclarator(path) {
-      if (path.parentPath.parentPath.isProgram()) {
-        globalVariables.add(path.node.id.name);
-      }
+    if (path.isVariableDeclarator() && path.parentPath.parentPath.isProgram()) {
+      globalVariables.add(path.node.id.name);
     }
-  });
+  }
+});
 
   let previousSize;
   do {
@@ -208,32 +214,29 @@ export function extractHandlers(outputPath, config, blocks) {
     return `_${blk.id}: ${blk.code}`;
   });
 
-  if (baseClassName && classHydrateBlocks.length > 0) {
+ for (const { baseClassName, newClassName, blocks } of hydratedClasses.values()) {
   const seen = new Set();
-  const methodBlocks = classHydrateBlocks
+  const methodBlocks = blocks
     .filter(blk => {
       if (seen.has(blk.id)) return false;
       seen.add(blk.id);
       return !blk.code.includes('class ');
     })
     .map(blk => {
-  // Handle method declarations directly
-  const methodMatch = blk.code.match(/^function\s+(\w+)\((.*?)\)\s*\{([\s\S]*)\}$/);
-  if (methodMatch) {
-    const name = methodMatch[1];
-    const args = methodMatch[2];
-    const body = methodMatch[3];
-    return `${name}(${args}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
-  }
+      const methodMatch = blk.code.match(/^function\s+(\w+)\((.*?)\)\s*\{([\s\S]*)\}$/);
+      if (methodMatch) {
+        const name = methodMatch[1];
+        const args = methodMatch[2];
+        const body = methodMatch[3];
+        return `${name}(${args}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+      }
 
-  // Fallback to arrow-function based hydration block
-  const match = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
-  if (!match) return '';
-  const args = match[1].trim();
-  const body = match[2].trim();
-  return `_${blk.id}({${args}}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
-})
-
+      const match = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
+      if (!match) return '';
+      const args = match[1].trim();
+      const body = match[2].trim(); 
+      return `_${blk.id}({${args}}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+    })
     .filter(Boolean)
     .join('\n\n');
 
@@ -246,12 +249,11 @@ import ${baseClassName} from './${baseClassName}';
 class ${newClassName} extends ${baseClassName} {
 ${methodBlocks}
 }
-${methodDependencies}
-;`;
+`;
 
-  hydrationCode.push(beautify(classCode, { indent_size: 2 }));
-} 
-
+  hydrationCode.push(beautify(classCode, { indent_size: 2 })+'\n');
+}
+ 
 if (nonClassHydrateBlocks.length > 0) {
   const hydrateFunctionNames = new Set();
   nonClassHydrateBlocks.forEach(blk => {
@@ -267,13 +269,13 @@ if (nonClassHydrateBlocks.length > 0) {
     return true;
   });
 
-  const fnsArr = nonClassHydrateBlocks.map(blk => `_${blk.id}: ${blk.code}`);
+  const nonClassfnsArr = nonClassHydrateBlocks.map(blk => `_${blk.id}: ${blk.code}`);
 
   const nonClassCode = `
 ${generator(t.program([...importNodes, ...filteredExtractedNodes])).code}
 const hydrationToken = "${lastTwoParts}";
 const hydrationBlocks = {
-  ${fnsArr.join(',\n  ')}
+  ${nonClassfnsArr.join(',\n  ')}
 };
 ${hydrationRuntime}
 ;`;
@@ -296,6 +298,7 @@ const cleanedOutput = hydrationCode.join('\n')
 
 fs.writeFileSync(outputPath, beautify(cleanedOutput, { indent_size: 2 }));
 }
+
 
 /**
  * Process all hydrated files in a directory

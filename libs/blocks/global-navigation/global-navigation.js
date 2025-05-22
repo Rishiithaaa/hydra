@@ -223,9 +223,11 @@ const decorateSignIn = async ({ rawElem, decoratedElem }) => {
     if (dropdownSignInAnchor) {
       const dropdownSignInButton = toFragment`<button class="feds-signIn">${dropdownSignInAnchor.textContent}</button>`;
       dropdownSignInAnchor.replaceWith(dropdownSignInButton);
+      //@hydrate({payload:{e}})
       dropdownSignInButton.addEventListener('click', (e) => {
         e.preventDefault();
         signIn(SIGNIN_CONTEXT);
+        //@end
       });
     } else {
       lanaLog({ message: 'Sign in link not found in dropdown.', tags: 'gnav', errorType: 'warn' });
@@ -333,7 +335,7 @@ export class Gnav {
     this.content = content;
     this.block = block;
     this.customLinks = getConfig()?.customLinks?.split(',') || [];
-//@hydrate({payload:{}})
+//@hydrate({payload:{profile}})
     this.blocks = {
       profile: {
         rawElem: this.content.querySelector('.profile'),
@@ -1402,6 +1404,7 @@ export class Gnav {
     return this.elements.search;
   };
 }
+
 export default async function init(block) {
   const { mep } = getConfig();
   const sourceUrl = await getGnavSource();
