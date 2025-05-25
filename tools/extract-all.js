@@ -16,7 +16,7 @@ export async function extractAllComponents() {
     .filter(file => file.endsWith('-hydrate.js'))
     .map(file => `import './${file}';`)
     .join('\n');
-  
+
   fs.writeFileSync(path.join(outputDir, 'loader.js'), hydratedFiles);
   fs.writeFileSync(path.join(outputDir, 'code.json'), JSON.stringify(blocks));
 }

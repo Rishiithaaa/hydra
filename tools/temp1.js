@@ -67,9 +67,15 @@ export function extractHandlers(outputPath, config, blocks) {
   const extractedNodes = new Set();
   const processedDependencies = new Set();
   const globalVariables = new Set();
+
   const classHydrateBlocks = [];
   const nonClassHydrateBlocks = [];
   const hydratedClasses = new Map(); // key = classStartLine, value = { baseClassName, newClassName, blocks: [] }
+
+  const classDependencies = new Set();
+  const processedClassDependencies = new Set();
+  const extractedClassMethods = new Set();
+  const hydrateMethodNames = new Set();
 
 traverse(ast, {
   enter(path) {
@@ -115,9 +121,19 @@ traverse(ast, {
       path.traverse({
         Identifier(innerPath) {
           dependencies.add(innerPath.node.name);
-        }
-      });
-    }
+        },
+                  MemberExpression(innerPath) {
+            if (
+              t.isThisExpression(innerPath.node.object) &&
+              t.isIdentifier(innerPath.node.property)
+            ) {
+              classDependencies.add(innerPath.node.property.name);
+            }
+          }
+        });
+
+        hydrateMethodNames.add(path.node.key?.name);
+      }
 
     // Clean comments
     if (path.node.leadingComments) {
@@ -136,6 +152,40 @@ traverse(ast, {
     }
   }
 });
+let previousClassDepSize;
+  do {
+    previousClassDepSize = classDependencies.size;
+    const currentDeps = Array.from(classDependencies);
+
+    currentDeps.forEach(depName => {
+      if (processedClassDependencies.has(depName)) return;
+      processedClassDependencies.add(depName);
+
+      traverse(ast, {
+        ClassMethod(path) {
+          if (path.node.key.name === depName) {
+            classDependencies.add(path.node.key.name);
+
+            path.traverse({
+              Identifier(innerPath) {
+                dependencies.add(innerPath.node.name);
+              },
+              MemberExpression(innerPath) {
+                if (
+                  t.isThisExpression(innerPath.node.object) &&
+                  t.isIdentifier(innerPath.node.property)
+                ) {
+                  classDependencies.add(innerPath.node.property.name);
+                }
+              }
+            });
+
+            extractedClassMethods.add(path.node);
+          }
+        }
+      });
+    });
+  } while (classDependencies.size > previousClassDepSize);
 
   let previousSize;
   do {
@@ -200,22 +250,16 @@ traverse(ast, {
   });
 
   const hydrateBlocks = [...classHydrateBlocks, ...nonClassHydrateBlocks];
-  blocks[lastTwoParts] = blocks[lastTwoParts] || [];
-  blocks[lastTwoParts].push(...hydrateBlocks);
+blocks[lastTwoParts] = blocks[lastTwoParts] || [];
+blocks[lastTwoParts].push(...hydrateBlocks);
 
-  const sortedStatements = [...importNodes, ...extractedNodes].map(node =>
-    t.isExpression(node) ? t.expressionStatement(node) : node
-  );
+// Create a map of function IDs to code strings
+const fnsArr = hydrateBlocks.map(blk => `_${blk.id}: ${blk.code}`);
 
-  const extractedAST = t.program(sortedStatements);
-  let extractedCode = generator(extractedAST).code;
-
-  const fnsArr = hydrateBlocks.map(blk => {
-    return `_${blk.id}: ${blk.code}`;
-  });
-
- for (const { baseClassName, newClassName, blocks } of hydratedClasses.values()) {
+// Build hydrated class definitions
+for (const { baseClassName, newClassName, blocks } of hydratedClasses.values()) {
   const seen = new Set();
+
   const methodBlocks = blocks
     .filter(blk => {
       if (seen.has(blk.id)) return false;
@@ -223,37 +267,48 @@ traverse(ast, {
       return !blk.code.includes('class ');
     })
     .map(blk => {
-      const methodMatch = blk.code.match(/^function\s+(\w+)\((.*?)\)\s*\{([\s\S]*)\}$/);
-      if (methodMatch) {
-        const name = methodMatch[1];
-        const args = methodMatch[2];
-        const body = methodMatch[3];
+      const functionMatch = blk.code.match(/^function\s+(\w+)\((.*?)\)\s*\{([\s\S]*)\}$/);
+      if (functionMatch) {
+        const [_, name, args, body] = functionMatch;
         return `${name}(${args}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
       }
 
-      const match = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
-      if (!match) return '';
-      const args = match[1].trim();
-      const body = match[2].trim(); 
-      return `_${blk.id}({${args}}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+      const arrowMatch = blk.code.match(/^\(\{?(.*?)\}?\)\s*=>\s*\{([\s\S]*)\}$/);
+      if (arrowMatch) {
+        const [_, args, body] = arrowMatch;
+        return `_${blk.id}({${args.trim()}}) {\n  ${body.replace(/\n/g, '\n  ')}\n}`;
+      }
+
+      return '';
     })
-    .filter(Boolean)
-    .join('\n\n');
+    .filter(Boolean);
 
-  const methodDependencies = Array.from(extractedNodes)
-    .map(node => generator(node).code)
-    .join('\n');
+  // Extract only extra class methods not present in the hydrate method names
+  const extraClassMethods = Array.from(extractedClassMethods).filter(
+    method => !hydrateMethodNames.has(method.key.name)
+  );
 
+  // Parse each method block to AST class methods
+  const methodASTNodes = methodBlocks.map(m =>
+    parser.parseExpression(`class X { ${m} }`).body.body[0]
+  );
+
+  const hydratedClass = t.classDeclaration(
+    t.identifier(newClassName),
+    t.identifier(baseClassName),
+    t.classBody([...methodASTNodes, ...extraClassMethods]),
+    []
+  );
+
+  // Generate code from the hydrated class AST and beautify
   const classCode = `
 import ${baseClassName} from './${baseClassName}';
-class ${newClassName} extends ${baseClassName} {
-${methodBlocks}
-}
+${generator(hydratedClass).code}
 `;
 
-  hydrationCode.push(beautify(classCode, { indent_size: 2 })+'\n');
+  hydrationCode.push(beautify(classCode, { indent_size: 2 }) + '\n');
 }
- 
+
 if (nonClassHydrateBlocks.length > 0) {
   const hydrateFunctionNames = new Set();
   nonClassHydrateBlocks.forEach(blk => {
