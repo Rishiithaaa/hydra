@@ -210,7 +210,7 @@ let previousClassDepSize;
         VariableDeclarator(path) {
           if (
             path.node.id.name === depName &&
-            path.parentPath.parentPath.isProgram() &&
+            path.parentPath.parentPath.isProgram() && path.node.init &&
             (path.node.init.type === 'FunctionExpression' ||
               path.node.init.type === 'ArrowFunctionExpression')
           ) {

@@ -210,7 +210,7 @@ let previousClassDepSize;
         VariableDeclarator(path) {
           if (
             path.node.id.name === depName &&
-            path.parentPath.parentPath.isProgram() &&
+            path.parentPath.parentPath.isProgram() && path.node.init &&
             (path.node.init.type === 'FunctionExpression' ||
               path.node.init.type === 'ArrowFunctionExpression')
           ) {
@@ -350,8 +350,11 @@ ${hydrationRuntime}
 const cleanedOutput = hydrationCode.join('\n')
   .replace(/\/\/\s*@hydrate(\.class)?\([^)]*\)\n?/g, '')
   .replace(/\/\/\s*@end\n?/g, '');
+  const classMatch = cleanedOutput.match(/class\s+([A-Za-z0-9_]+)/);
+const newClassName = classMatch ? classMatch[1] : 'HydratedComponent'; // Fallback
+const finalOutput = `${cleanedOutput}\nexport default ${newClassName};\n`;
 
-fs.writeFileSync(outputPath, beautify(cleanedOutput, { indent_size: 2 }));
+fs.writeFileSync(outputPath, beautify(finalOutput, { indent_size: 2 }));
 }
 
 

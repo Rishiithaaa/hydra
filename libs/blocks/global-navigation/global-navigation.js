@@ -329,8 +329,8 @@ const removeLocalNav = () => {
   document.querySelector('.feds-localnav')?.remove();
 };
 
-
-export class Gnav {
+//@hydrate.class(Gnav, { className: 'GnavHydrate' })
+class Gnav {
   constructor({ content, block, newMobileNav } = {}) {
     this.content = content;
     this.block = block;
@@ -1404,7 +1404,7 @@ export class Gnav {
     return this.elements.search;
   };
 }
-
+//@end
 export default async function init(block) {
   const { mep } = getConfig();
   const sourceUrl = await getGnavSource();
