@@ -82,23 +82,36 @@ traverse(ast, {
     const comments = path.node.leadingComments || [];
 
     const classComment = comments.find(c => c.value.trim().startsWith('@hydrate.class'));
-    if (classComment && path.isClassDeclaration()) {
-      const classHydrateRegex = /^@hydrate\.class\((\w+),\s*\{[\s\S]*?className:\s*["'](\w+)["']\s*\}\)/;
-      const match = classHydrateRegex.exec(classComment.value.trim());
-      if (match) {
-        const baseClassName = match[1];
-        const newClassName = match[2];
-        const classStartLine = path.node.loc.start.line;
+    if (classComment) {
+  let classNode = null;
 
-        hydratedClasses.set(classStartLine, {
-          baseClassName,
-          newClassName,
-          blocks: [],
-        });
-      }
+  if (path.isClassDeclaration()) {
+    classNode = path.node;
+  } else if (path.isExportNamedDeclaration() && path.node.declaration && path.node.declaration.type === 'ClassDeclaration') {
+    classNode = path.node.declaration;
+  }
+
+  if (classNode) {
+    const classHydrateRegex = /^@hydrate\.class\((\w+),\s*\{[\s\S]*?className:\s*["'](\w+)["']\s*\}\)/;
+    const match = classHydrateRegex.exec(classComment.value.trim());
+    if (match) {
+      const baseClassName = match[1];
+      const newClassName = match[2];
+      const classStartLine = classNode.loc.start.line;
+
+      hydratedClasses.set(classStartLine, {
+        baseClassName,
+        newClassName,
+        blocks: [],
+      });
     }
+  }
+}
 
-    const hydrateComment = comments.find(c => c.value.trim().startsWith('@hydrate'));
+    //const hydrateComment = comments.find(c => c.value.trim().startsWith('@hydrate'));
+    const hydrateComment = comments.find(c =>
+  /^\s*@hydrate\s*\(\s*\{[\s\S]*?\}\s*\)\s*$/.test(c.value.trim())
+);
     if (hydrateComment) {
       const lineNumber = path.node.loc?.start?.line || 0;
       const extractedPayload = convertHydrateString(hydrateComment.value);
@@ -134,13 +147,13 @@ traverse(ast, {
 
         hydrateMethodNames.add(path.node.key?.name);
       }
-
     // Clean comments
     if (path.node.leadingComments) {
       path.node.leadingComments = path.node.leadingComments.filter(comment =>
         !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end'
       );
     }
+
     if (path.node.trailingComments) {
       path.node.trailingComments = path.node.trailingComments.filter(comment =>
         !/^\s*@hydrate(\.class)?/.test(comment.value) && comment.value.trim() !== '@end'
@@ -150,42 +163,72 @@ traverse(ast, {
     if (path.isVariableDeclarator() && path.parentPath.parentPath.isProgram()) {
       globalVariables.add(path.node.id.name);
     }
+
   }
 });
+
 let previousClassDepSize;
-  do {
-    previousClassDepSize = classDependencies.size;
-    const currentDeps = Array.from(classDependencies);
+do {
+  previousClassDepSize = classDependencies.size;
+  const currentDeps = Array.from(classDependencies);
 
-    currentDeps.forEach(depName => {
-      if (processedClassDependencies.has(depName)) return;
-      processedClassDependencies.add(depName);
+  currentDeps.forEach(depName => {
+    if (processedClassDependencies.has(depName)) return;
+    processedClassDependencies.add(depName);
 
-      traverse(ast, {
-        ClassMethod(path) {
-          if (path.node.key.name === depName) {
-            classDependencies.add(path.node.key.name);
+    traverse(ast, {
+      // ✅ Handle traditional class methods
+      ClassMethod(path) {
+        if (path.node.key.name === depName) {
+          classDependencies.add(path.node.key.name);
 
-            path.traverse({
-              Identifier(innerPath) {
-                dependencies.add(innerPath.node.name);
-              },
-              MemberExpression(innerPath) {
-                if (
-                  t.isThisExpression(innerPath.node.object) &&
-                  t.isIdentifier(innerPath.node.property)
-                ) {
-                  classDependencies.add(innerPath.node.property.name);
-                }
+          path.traverse({
+            Identifier(innerPath) {
+              dependencies.add(innerPath.node.name);
+            },
+            MemberExpression(innerPath) {
+              if (
+                t.isThisExpression(innerPath.node.object) &&
+                t.isIdentifier(innerPath.node.property)
+              ) {
+                classDependencies.add(innerPath.node.property.name);
               }
-            });
+            }
+          });
 
-            extractedClassMethods.add(path.node);
-          }
+          extractedClassMethods.add(path.node);
         }
-      });
+      },
+
+      // ✅ Handle arrow functions assigned as class properties
+      ClassProperty(path) {
+        if (
+          t.isIdentifier(path.node.key) &&
+          path.node.key.name === depName &&
+          t.isArrowFunctionExpression(path.node.value)
+        ) {
+          classDependencies.add(path.node.key.name);
+
+          path.traverse({
+            Identifier(innerPath) {
+              dependencies.add(innerPath.node.name);
+            },
+            MemberExpression(innerPath) {
+              if (
+                t.isThisExpression(innerPath.node.object) &&
+                t.isIdentifier(innerPath.node.property)
+              ) {
+                classDependencies.add(innerPath.node.property.name);
+              }
+            }
+          });
+
+          extractedClassMethods.add(path.node); // or extractedClassProperties
+        }
+      }
     });
-  } while (classDependencies.size > previousClassDepSize);
+  });
+} while (classDependencies.size > previousClassDepSize);
 
   let previousSize;
   do {
@@ -350,11 +393,7 @@ ${hydrationRuntime}
 const cleanedOutput = hydrationCode.join('\n')
   .replace(/\/\/\s*@hydrate(\.class)?\([^)]*\)\n?/g, '')
   .replace(/\/\/\s*@end\n?/g, '');
-  const classMatch = cleanedOutput.match(/class\s+([A-Za-z0-9_]+)/);
-const newClassName = classMatch ? classMatch[1] : 'HydratedComponent'; // Fallback
-const finalOutput = `${cleanedOutput}\nexport default ${newClassName};\n`;
-
-fs.writeFileSync(outputPath, beautify(finalOutput, { indent_size: 2 }));
+fs.writeFileSync(outputPath, beautify(cleanedOutput, { indent_size: 2 }));
 }
 
 

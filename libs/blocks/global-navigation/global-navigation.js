@@ -10,6 +10,7 @@ import {
   getFedsPlaceholderConfig,
   makeSerializable,
 } from '../../utils/utils.js';
+
 import {
   closeAllDropdowns,
   decorateCta,
@@ -49,9 +50,7 @@ import {
 } from './utilities/utilities.js';
 
 import { replaceKey, replaceKeyArray } from '../../features/placeholders.js';
-
 import { getMiloLocaleSettings } from '../merch/merch.js';
-
 const SIGNIN_CONTEXT = getConfig()?.signInContext;
 
 function getHelpChildren() {
@@ -328,20 +327,22 @@ const removeLocalNav = () => {
   lanaLog({ message: 'Gnav Localnav was removed, potential CLS', tags: 'gnav-localnav' });
   document.querySelector('.feds-localnav')?.remove();
 };
+const hello = (name) => {
+    console.log("Hello:", name);
+};
 
 //@hydrate.class(Gnav, { className: 'GnavHydrate' })
-class Gnav {
+export class Gnav {
   constructor({ content, block, newMobileNav } = {}) {
     this.content = content;
     this.block = block;
     this.customLinks = getConfig()?.customLinks?.split(',') || [];
-//@hydrate({payload:{profile}})
     this.blocks = {
       profile: {
         rawElem: this.content.querySelector('.profile'),
         decoratedElem: toFragment`<div data-cs-mask class="feds-profile"></div>`,
       },
-      //@end
+      
       search: { config: { icon: CONFIG.icons.search } },
       breadcrumbs: { wrapper: '' },
     };
@@ -349,11 +350,11 @@ class Gnav {
     this.setupUniversalNav();
     this.elements = {};
     this.newMobileNav = newMobileNav;
+
   }
 
   // eslint-disable-next-line no-return-assign
   getOriginalTitle = (firstElem) => this.originalTitle ||= firstElem.textContent?.split('::');
-//@hydrate({payload:{}})
   setupUniversalNav = () => {
     const meta = getMetadata('universal-nav')?.toLowerCase();
     this.universalNavComponents = meta?.split(',').map((option) => option.trim())
@@ -367,7 +368,7 @@ class Gnav {
       }, true);
     }
   };
-//@end
+  
   init = () => logErrorFor(async () => {
     branchBannerLoadCheck(this.updatePopupPosition);
     this.elements.curtain = toFragment`<div class="feds-curtain"></div>`;
@@ -487,7 +488,8 @@ class Gnav {
       itemWrapper.appendChild(clonedItem);
     });
 
-   window.hydrate && window.hydrate({id:4, payload:{localNav,title}}) 
+  // window.hydrate && window.hydrate({id:4, payload:{localNav,title}}) 
+  //@hydrate({payload:{localNav,title}})
     localNav.querySelector('.feds-localnav-title').addEventListener('click', () => {
       localNav.classList.toggle('feds-localnav--active');
       const isActive = localNav.classList.contains('feds-localnav--active');
@@ -925,7 +927,9 @@ class Gnav {
       </button>`;
 
 
-    window.hydrate && window.hydrate({id:2, payload:{toggle}})
+    //window.hydrate && window.hydrate({id:2, payload:{toggle}})
+
+    //@hydrate({payload:{toggle}})
     toggle.addEventListener('click', () => logErrorFor(async () => {
       this.toggleMenuMobile();
 
@@ -1237,7 +1241,9 @@ class Gnav {
             originalContent = await transformTemplateToMobile(popup, item, this.isLocalNav());
             popup.querySelector('.close-icon')?.addEventListener('click', this.toggleMenuMobile);
           }
-          window.hydrate && window.hydrate({id:1, payload:{isDesktop, popup}})
+          //window.hydrate && window.hydrate({id:1, payload:{isDesktop, popup}})
+
+          //@hydrate({payload:{isDesktop,popup}})
           isDesktop.addEventListener('change', async () => {
             enableMobileScroll();
             if (isDesktop.matches) {
@@ -1283,7 +1289,9 @@ class Gnav {
           </${tag}>`;
 
         // Toggle trigger's dropdown on click
-        window.hydrate && window.hydrate({id:0, payload:{isDesktop, dropdownTrigger, isSectionMenu }})
+        //window.hydrate && window.hydrate({id:0, payload:{isDesktop, dropdownTrigger, isSectionMenu }})
+
+        //@hydrate({payload:{isDesktop,dropdownTrigger,isSectionMenu}})
         dropdownTrigger.addEventListener('click', (e) => {
           if (!isDesktop.matches && this.newMobileNav && isSectionMenu) {
             const popup = dropdownTrigger.nextElementSibling;

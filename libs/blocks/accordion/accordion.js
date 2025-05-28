@@ -212,7 +212,7 @@ async function createExpandAllContainer(accordionItems, isEditorial, mediaEl) {
 
 }
 export default async function init(el) {
-//@hydrate.0({payload:{el}})
+//@hydrate({payload:{el}})
   const id = getUniqueId(el);
   //@end
   const accordion = createTag('div', { class: 'descr-list accordion', id: `accordion-${id}`, role: 'presentation' });
