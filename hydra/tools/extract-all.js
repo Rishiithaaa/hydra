@@ -1,25 +1,24 @@
 // build/extract-all.js
 import fs from 'fs';
 import path from 'path';
-import { extractHandlers } from './extract-new-utils.js';
-import config from './components.config.js';
+import { processHydratedFiles } from './extract-new-utils.js';
 
-async function extractAllComponents() {
-  const outputDir = './dist/';
+export async function extractAllComponents() {
+  const sourceDir = './libs';
+  const outputDir = './libs/blocks/dist';
   
-  // Process each component
-  await Promise.all(Object.entries(config).map(async ([name, cfg]) => {
-    const outputPath = path.join(outputDir, `${name}-hydrate.js`);
-    await extractHandlers(outputPath, cfg);
-  }));
+  const blocks = {};
+  // Process all hydrated files
+  await processHydratedFiles(sourceDir, outputDir, blocks);
 
   // Generate unified loader
-  const loaderCode = Object.keys(config).map(name => 
-    `import './${name}-hydrate.js';`
-  ).join('\n');
+  const hydratedFiles = fs.readdirSync(outputDir)
+    .filter(file => file.endsWith('-hydrate.js'))
+    .map(file => `import './${file}';`)
+    .join('\n');
   
-  fs.writeFileSync(path.join(outputDir, 'loader.js'), loaderCode);
+  fs.writeFileSync(path.join(outputDir, 'loader.js'), hydratedFiles);
+  fs.writeFileSync(path.join(outputDir, 'code.json'), JSON.stringify(blocks));
 }
 
-// Run extraction
 extractAllComponents();

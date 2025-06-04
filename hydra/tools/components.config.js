@@ -1,12 +1,12 @@
 const config = {
   "accordion": {
-    entry: "../libs/blocks/accordion/accordion.js",
+    entry: "temp/libs/blocks/accordion/accordion.js",
   },
   "tabs": {
-    entry: "../libs/blocks/tabs/tabs.js",
+    entry: "temp/libs/blocks/tabs/tabs.js",
   },
   "global-navigation": {
-    entry: "../libs/blocks/global-navigation/global-navigation.js",
+    entry: "temp/libs/blocks/global-navigation/global-navigation.js",
   }
 }
 
